@@ -151,12 +151,26 @@ function SlotCellView({
   }
 
   if (cell.status === "booked") {
+    if (mode === "staff") {
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          onKeyDown={onKeyDown}
+          className={cn(baseClasses, "bg-court-700 text-chalk/80 hover:bg-court-600/80 cursor-pointer text-center")}
+          title={`Booked: ${cell.memberInitials ?? "Member"}. Click to view / manage`}
+        >
+          <Lock className="size-3.5 mb-0.5 text-volt-400/80" />
+          {cell.memberInitials && (
+            <span className="text-[10px] font-mono font-semibold text-volt-400">{cell.memberInitials}</span>
+          )}
+          <span className="text-[10px]">Booked</span>
+        </button>
+      );
+    }
     return (
       <div className={cn(baseClasses, "bg-court-700 text-chalk/60 cursor-not-allowed")}>
         <Lock className="size-3.5 mb-0.5" />
-        {mode === "staff" && cell.memberInitials && (
-          <span className="text-[10px]">{cell.memberInitials}</span>
-        )}
         <span className="text-[10px]">Booked</span>
       </div>
     );

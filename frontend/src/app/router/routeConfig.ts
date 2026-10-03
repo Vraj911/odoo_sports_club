@@ -78,14 +78,14 @@ export const routeConfig: RouteMeta[] = [
   { ...r("/app/notifications", "Notifications", "member", MEMBERS, 4, ["NTF-01"], Bell), load: () => import("@/features/member/pages/NotificationsPage") },
 
   // FRONT DESK
-  c("/desk", "Desk Overview", DESK, 5, "desk", ClipboardList),
-  c("/desk/register", "Register Member", DESK, 5, "desk", UserRoundPlus, ["MEM-01"]),
-  c("/desk/availability", "Availability", DESK, 5, "desk", CalendarDays),
-  c("/desk/walk-in", "Walk-in Booking", DESK, 5, "desk", Footprints, ["BKG-09"]),
-  c("/desk/checkin", "Check-in", DESK, 5, "desk", ScanLine, ["MEM-15"]),
-  c("/desk/members/:id", "Member Profile", DESK, 5, "desk", User, ["MEM-13"]),
-  c("/desk/bookings", "Bookings", DESK, 5, "desk", ListChecks),
-  c("/desk/payments", "Payments", DESK, 5, "desk", Wallet),
+  { ...c("/desk", "Desk Overview", DESK, 5, "desk", ClipboardList), load: () => import("@/features/desk/pages/DeskOverview") },
+  { ...c("/desk/register", "Register Member", DESK, 5, "desk", UserRoundPlus, ["MEM-01"]), load: () => import("@/features/desk/pages/RegisterMember") },
+  { ...c("/desk/availability", "Availability", DESK, 5, "desk", CalendarDays), load: () => import("@/features/desk/pages/DeskAvailability") },
+  { ...c("/desk/walk-in", "Walk-in Booking", DESK, 5, "desk", Footprints, ["BKG-09"]), load: () => import("@/features/desk/pages/DeskWalkIn") },
+  { ...c("/desk/checkin", "Check-in", DESK, 5, "desk", ScanLine, ["MEM-15"]), load: () => import("@/features/desk/pages/DeskCheckin") },
+  { ...c("/desk/members/:id", "Member Profile", DESK, 5, "desk", User, ["MEM-13"]), load: () => import("@/features/desk/pages/StaffMemberProfile") },
+  { ...c("/desk/bookings", "Bookings", DESK, 5, "desk", ListChecks), load: () => import("@/features/desk/pages/DeskBookings") },
+  { ...c("/desk/payments", "Payments", DESK, 5, "desk", Wallet), load: () => import("@/features/desk/pages/DeskPayments") },
 
   // SHOP CONSOLE
   c("/shop-console", "Point of Sale", SHOP, 6, "shop", Store),
