@@ -19,8 +19,12 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
   const [collapsed, setCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  // Check if page is POS mode (e.g. /shop-console or /bar or /kds) to expand full width for tablet touch use
-  const isPOS = route.path === "/shop-console" || route.path === "/bar" || route.path === "/kds";
+  // Check if page is POS mode (e.g. /shop-console or /shop-console/quick or /bar or /kds) to expand full width for tablet touch use
+  const isPOS =
+    route.path === "/shop-console" ||
+    route.path === "/shop-console/quick" ||
+    route.path === "/bar" ||
+    route.path === "/kds";
   const visibleGroupKeys = getVisibleNavGroups(user);
 
   // Build a display string for the user's permission groups
@@ -114,8 +118,9 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
 
       {/* Main Console Content Body */}
       <div className="flex flex-1 flex-col min-w-0">
-        {/* Topbar 72px */}
-        <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-chalk/14 bg-navy-900/90 px-6 backdrop-blur-md gap-4">
+        {/* Topbar 72px (hidden in full-screen POS mode) */}
+        {!isPOS && (
+          <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-chalk/14 bg-navy-900/90 px-6 backdrop-blur-md gap-4">
           <div className="flex items-center gap-3 min-w-0">
             {!isPOS && (
               <button
@@ -224,12 +229,13 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
             </div>
           </div>
         </header>
+      )}
 
         {/* Page Header (if not on POS page) */}
         {!isPOS && <PageHeader title={route.title} />}
 
         {/* Console Workspace Main Viewport */}
-        <main className={cn("flex-1 p-6 md:p-8", isPOS && "p-3 sm:p-4 md:p-6")}>
+        <main className={cn("flex-1 p-6 md:p-8", isPOS && "p-0 overflow-hidden")}>
           {children}
         </main>
       </div>

@@ -20,3 +20,5 @@ export function useGo() {
       ? navigate({ to: "/" })
       : navigate({ to: "/$", params: { _splat: to.replace(/^\//, "") } });
 }
+
+export const useAppNavigate = useGo;
