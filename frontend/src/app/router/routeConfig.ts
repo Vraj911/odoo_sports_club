@@ -47,15 +47,15 @@ const c = (
 export const routeConfig: RouteMeta[] = [
   // ─── PUBLIC (no login) ──────────────────────────────────────────────
   { ...r("/", "Home", "public", PUBLIC, 2, ["WEB-01"], Home), load: () => import("@/features/website/pages/Home") },
-  r("/facilities", "Facilities", "public", PUBLIC, 8, ["WEB-01"], Building2),
-  r("/plans", "Membership Plans", "public", PUBLIC, 8, ["WEB-02"], BadgeCheck),
-  r("/availability", "This Week", "public", PUBLIC, 8, ["WEB-03"], CalendarDays),
+  { ...r("/facilities", "Facilities", "public", PUBLIC, 8, ["WEB-01"], Building2), load: () => import("@/features/website/pages/FacilitiesPage") },
+  { ...r("/plans", "Membership Plans", "public", PUBLIC, 8, ["WEB-02"], BadgeCheck), load: () => import("@/features/website/pages/PlansPage") },
+  { ...r("/availability", "This Week", "public", PUBLIC, 8, ["WEB-03"], CalendarDays), load: () => import("@/features/website/pages/AvailabilityPage") },
   { ...r("/shop", "Shop", "public", PUBLIC, 6, ["WEB-04"], ShoppingBag), load: () => import("@/features/shop/pages/ShopCatalogPage") },
   { ...r("/shop/:slug", "Product", "public", PUBLIC, 6, [], Package), load: () => import("@/features/shop/pages/ProductDetailPage") },
   { ...r("/cart", "Cart", "public", PUBLIC, 6, [], ShoppingCart), load: () => import("@/features/shop/pages/CartPage") },
   { ...r("/checkout", "Checkout", "public", PUBLIC, 6, [], CreditCard), load: () => import("@/features/shop/pages/CheckoutPage") },
-  r("/trial", "Book a Trial", "public", PUBLIC, 8, ["WEB-05"], Sparkles),
-  r("/contact", "Contact", "public", PUBLIC, 8, ["WEB-07"], Mail),
+  { ...r("/trial", "Book a Trial", "public", PUBLIC, 8, ["WEB-05"], Sparkles), load: () => import("@/features/website/pages/TrialBookingPage") },
+  { ...r("/contact", "Contact", "public", PUBLIC, 8, ["WEB-07"], Mail), load: () => import("@/features/website/pages/ContactPage") },
   r("/share/:token", "Shared Report", "public", PUBLIC, 11, ["RPT-10"], Share2),
 
   // ─── AUTH ───────────────────────────────────────────────────────────
