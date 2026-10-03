@@ -9,4 +9,14 @@ public interface BookingEngine {
     java.time.ZoneId IST = java.time.ZoneId.of("Asia/Kolkata");
 
     Model.ClubConfig config();
+
+    /**
+     * Return an occupancy mask for the given court/day where each bit represents a 30-min slot.
+     */
+    long occupancy(java.util.UUID courtId, java.time.LocalDate day);
+
+    /**
+     * Return a list of startable slot indices for the court/day (0..47).
+     */
+    java.util.List<Integer> startableSlots(java.util.UUID courtId, java.time.LocalDate day);
 }

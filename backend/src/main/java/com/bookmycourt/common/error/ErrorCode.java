@@ -36,7 +36,8 @@ public enum ErrorCode {
     SYSTEM_BUSY(HttpStatus.SERVICE_UNAVAILABLE),
     SHARE_LINK_INVALID(HttpStatus.UNAUTHORIZED),
     SHARE_LINK_EXPIRED(HttpStatus.GONE),
-    SHARE_LINK_REVOKED(HttpStatus.FORBIDDEN);
+    SHARE_LINK_REVOKED(HttpStatus.FORBIDDEN),
+    FORBIDDEN(HttpStatus.FORBIDDEN);
 
     private final HttpStatus httpStatus;
 
