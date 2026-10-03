@@ -136,7 +136,7 @@ The schema is organized into **10 domains**. Here's the complete table inventory
 | 8 |                         | `social_session`         | Group play sessions on a court              |
 | 9 |                         | `social_participant`     | Members/guests in a social session          |
 |10 |                         | `waitlist`               | Queue for full sessions or busy courts      |
-|11 |                         | `occupancy`              | Court time-range lock (GiST overlap guard)  |
+|11 |                         | `occupancy`              | Court time-range occupancy ledger           |
 |12 | Shop & Inventory        | `product`                | Shop products with category as column       |
 |13 |                         | `product_variant`        | SKU/price/stock per variant                 |
 |14 |                         | `shop_order`             | Purchase orders from members/guests         |
@@ -276,7 +276,8 @@ A court reservation. Always 60-minute slots.
 | expires_at      | TIMESTAMPTZ   | Auto-cancel if not confirmed by this time    |
 
 #### `occupancy`
-**The anti-double-booking engine.** Uses PostgreSQL GiST exclusion constraint to prevent overlapping active occupancy on the same court.
+**The occupancy ledger.** The current MVP booking engine uses process-local court-day locks and
+in-memory bitmasks, rebuilt from active bookings after restart.
 
 | Column          | Type          | Notes                                        |
 |-----------------|---------------|----------------------------------------------|
@@ -287,7 +288,8 @@ A court reservation. Always 60-minute slots.
 | occupied_period | TSTZRANGE     | PostgreSQL range type for time span          |
 | status          | VARCHAR(10)   | `ACTIVE` or `RELEASED`                       |
 
-**Critical:** The `EXCLUDE USING GIST` constraint makes it **physically impossible** for two active occupancies to overlap on the same court. Application must create occupancy in the same transaction as the booking.
+The migration intentionally contains tables, indexes, checks, and triggers only. It does not
+implement booking decisions or an overlap policy in SQL.
 
 #### `social_session` & `social_participant`
 Group play sessions (e.g., "Open badminton 6-7pm"). Session has a capacity; participants register.
@@ -524,14 +526,15 @@ System-wide audit trail. Every significant action records:
 
 ## Database Constraints & Triggers
 
-### GiST Exclusion (Anti-Double-Booking)
-```sql
-ALTER TABLE occupancy
-    ADD CONSTRAINT occupancy_no_overlap_excl
-    EXCLUDE USING GIST (court_id WITH =, occupied_period WITH &&)
-    WHERE (status = 'ACTIVE');
-```
-This is the **strongest possible guarantee** against double-booking — enforced at the database level.
+### Booking engine boundary
+The anti-double-booking MVP is implemented in `booking/engine/`: a court-day is a 48-bit
+half-hour mask, booking decisions acquire ordered court/member stripes, and the JPA store
+commits before the mask is updated. This is correct for one application instance.
+
+**Major backend limitation:** the current SQL migration deliberately does not add a PostgreSQL
+exclusion constraint, and the application locks are not distributed. Running multiple backend
+instances can therefore reintroduce a double-booking race. Add a database/distributed guard
+before horizontal scaling.
 
 ### Stock Movement Trigger
 ```sql

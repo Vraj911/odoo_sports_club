@@ -1,70 +1,99 @@
 package com.bookmycourt.common.exception;
 
+import com.bookmycourt.booking.dto.AlternativeSlotResponse;
+import com.bookmycourt.booking.engine.Model.CapExceededException;
+import com.bookmycourt.booking.engine.Model.ConfirmationFailedException;
+import com.bookmycourt.booking.engine.Model.InvalidSlotException;
+import com.bookmycourt.booking.engine.Model.SlotTakenException;
+import com.bookmycourt.booking.mapper.BookingMapper;
 import com.bookmycourt.common.response.ApiResponse;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.NoSuchElementException;
 
-@ControllerAdvice
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(
-            MethodArgumentNotValidException exception,
-            HttpServletRequest request) {
+    private final BookingMapper bookingMapper;
 
+    public GlobalExceptionHandler(BookingMapper bookingMapper) {
+        this.bookingMapper = bookingMapper;
+    }
+
+    @ExceptionHandler(SlotTakenException.class)
+    public ResponseEntity<ApiResponse<List<AlternativeSlotResponse>>> handleSlotTaken(SlotTakenException ex) {
+        LocalDate date = ex.getDay();
+        List<AlternativeSlotResponse> alts = bookingMapper.toAlternatives(ex.getAlternatives(), date);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure("SLOT_TAKEN", alts));
+    }
+
+    @ExceptionHandler(CapExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCap(CapExceededException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure("CAP_EXCEEDED", null));
+    }
+
+    @ExceptionHandler(ConfirmationFailedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConfirmationFailure(ConfirmationFailedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure("BOOKING_NOT_CONFIRMABLE", null));
+    }
+
+    @ExceptionHandler(InvalidSlotException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidSlot(InvalidSlotException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure(ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(NotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failure(ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(AuthFailedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuth(AuthFailedException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.failure(ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissing(NoSuchElementException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failure("Resource not found", null));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<List<String>>> handleValidationException(
+            MethodArgumentNotValidException exception) {
         List<String> details = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .map(this::formatFieldError)
                 .toList();
-
-        ApiResponse<Void> body = new ApiResponse<>(
-                false,
-                "Validation failed",
-                null,
-                Instant.now()
-        );
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure("Validation failed", details));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(
-            ConstraintViolationException exception,
-            HttpServletRequest request) {
-
-        ApiResponse<Void> body = new ApiResponse<>(
-                false,
-                "Constraint violation",
-                null,
-                Instant.now()
-        );
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure(exception.getMessage(), null));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGenericException(
-            Exception exception,
-            HttpServletRequest request) {
-
-        ApiResponse<Void> body = new ApiResponse<>(
-                false,
-                "Unexpected server error",
-                null,
-                Instant.now()
-        );
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception exception) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.failure("Unexpected server error", null));
     }
 
     private String formatFieldError(FieldError fieldError) {
