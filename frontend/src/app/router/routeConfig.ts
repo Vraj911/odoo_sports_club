@@ -60,7 +60,7 @@ export const routeConfig: RouteMeta[] = [
 
   // MEMBER
   r("/app", "Home", "member", MEMBERS, 4, [], LayoutDashboard),
-  r("/app/book", "Book a Court", "member", MEMBERS, 3, ["BKG-07"], CalendarPlus),
+  { ...r("/app/book", "Book a Court", "member", MEMBERS, 3, ["BKG-07"], CalendarPlus), load: () => import("@/features/member/pages/BookCourt") },
   r("/app/social", "Social Play", "member", MEMBERS, 3, ["BKG-18"], Users),
   r("/app/bookings", "My Bookings", "member", MEMBERS, 3, [], ListChecks),
   r("/app/bookings/:id", "Booking Detail", "member", MEMBERS, 3, [], ListChecks),
