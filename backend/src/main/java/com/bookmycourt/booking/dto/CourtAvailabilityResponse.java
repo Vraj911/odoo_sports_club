@@ -1,8 +1,6 @@
 package com.bookmycourt.booking.dto;
-
 import java.util.List;
 import java.util.UUID;
-
 public record CourtAvailabilityResponse(
         UUID courtId,
         String courtName,

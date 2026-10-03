@@ -1,18 +1,14 @@
 package com.bookmycourt.booking.repository;
-
 import com.bookmycourt.booking.entity.Booking;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
-
     @Query("""
             SELECT b FROM Booking b
             WHERE b.court.id = :courtId
@@ -25,7 +21,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("from") OffsetDateTime from,
             @Param("to") OffsetDateTime to,
             @Param("statuses") Collection<String> statuses);
-
     @Query("""
             SELECT COUNT(b) FROM Booking b
             WHERE b.member.id = :memberId
@@ -38,7 +33,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("from") OffsetDateTime from,
             @Param("to") OffsetDateTime to,
             @Param("statuses") Collection<String> statuses);
-
     @Query("""
             SELECT DISTINCT b FROM Booking b
             JOIN FETCH b.court
@@ -46,7 +40,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             WHERE b.id = :id
             """)
     java.util.Optional<Booking> findDetailedById(@Param("id") UUID id);
-
     @Query("""
             SELECT DISTINCT b FROM Booking b
             JOIN FETCH b.court
@@ -55,9 +48,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             ORDER BY b.startTime DESC
             """)
     List<Booking> findDetailedByMember(@Param("memberId") UUID memberId);
-
     List<Booking> findByExpiresAtLessThanEqualAndStatus(OffsetDateTime now, String status);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Booking b
@@ -67,7 +58,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')
             """)
     int markCancelled(@Param("id") UUID id, @Param("reason") String reason);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Booking b
@@ -79,7 +69,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                AND (b.expiresAt IS NULL OR b.expiresAt > :now)
             """)
     int markConfirmed(@Param("id") UUID id, @Param("now") OffsetDateTime now);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Booking b
@@ -91,7 +80,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                AND b.expiresAt <= :now
             """)
     int markExpired(@Param("id") UUID id, @Param("now") OffsetDateTime now);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Booking b

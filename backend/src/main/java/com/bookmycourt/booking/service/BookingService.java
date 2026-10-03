@@ -21,7 +21,6 @@ import com.bookmycourt.pricing.dto.PriceQuoteResponse;
 import com.bookmycourt.pricing.service.PricingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -31,16 +30,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-
 @Service
 public class BookingService {
-
     private final BookingEngine engine;
     private final BookingRepository bookings;
     private final CourtRepository courts;
     private final BookingMapper mapper;
     private final PricingService pricing;
-
     public BookingService(
             BookingEngine engine,
             BookingRepository bookings,
@@ -53,23 +49,16 @@ public class BookingService {
         this.mapper = mapper;
         this.pricing = pricing;
     }
-
-    /**
-     * Intentionally not {@code @Transactional}: the engine holds court/member locks until
-     * {@link com.bookmycourt.booking.engine.BookingStore#insert} commits.
-     */
     public BookingResponse create(CreateBookingRequest request) {
         LocalTime startTime = LocalTime.parse(request.startTime());
         OffsetDateTime start = ZonedDateTime.of(request.date(), startTime, BookingEngine.IST)
                 .toOffsetDateTime()
                 .withOffsetSameInstant(ZoneOffset.UTC);
-
         Channel channel = parseChannel(request.channel());
         if ((request.memberId() == null) && (request.guestName() == null || request.guestName().isBlank())) {
             throw new com.bookmycourt.booking.engine.Model.InvalidSlotException(
                     "A member or guest name is required");
         }
-
         PriceQuoteResponse quote = pricing.quote(request.courtId(), request.memberId(), request.date(), startTime);
         BookingCommand cmd = new BookingCommand(
                 request.courtId(),
@@ -82,7 +71,6 @@ public class BookingService {
         BookingResult result = engine.book(cmd, pricing.toEngineQuote(quote));
         return get(result.bookingId());
     }
-
     public BookingResponse confirm(UUID bookingId) {
         BookingResponse current = get(bookingId);
         if (!"PENDING".equals(current.status()) || !engine.confirm(bookingId)) {
@@ -90,12 +78,10 @@ public class BookingService {
         }
         return get(bookingId);
     }
-
     public BookingResponse cancel(UUID bookingId, String reason) {
         engine.cancel(bookingId, reason);
         return get(bookingId);
     }
-
     @Transactional
     public BookingResponse checkIn(UUID bookingId) {
         int updated = bookings.markCheckedIn(bookingId);
@@ -104,21 +90,18 @@ public class BookingService {
         }
         return get(bookingId);
     }
-
     @Transactional(readOnly = true)
     public BookingResponse get(UUID bookingId) {
         Booking booking = bookings.findDetailedById(bookingId)
                 .orElseThrow(() -> new NotFoundException("Booking not found"));
         return mapper.toResponse(booking);
     }
-
     @Transactional(readOnly = true)
     public List<BookingResponse> listForMember(UUID memberId) {
         return bookings.findDetailedByMember(memberId).stream()
                 .map(mapper::toResponse)
                 .toList();
     }
-
     public List<CourtAvailabilityResponse> availability(String sport, LocalDate date) {
         List<Court> courtList = (sport == null || sport.isBlank())
                 ? courts.findByActiveTrueOrderByNameAsc()
@@ -140,11 +123,9 @@ public class BookingService {
         }
         return out;
     }
-
     public int reapExpiredHolds() {
         return engine.reapExpiredHolds();
     }
-
     private static Channel parseChannel(String channel) {
         if (channel == null || channel.isBlank()) {
             return Channel.ONLINE;
@@ -155,7 +136,6 @@ public class BookingService {
             return Channel.ONLINE;
         }
     }
-
     private static List<String> occupiedHalfHours(long mask, ClubConfig cfg) {
         List<String> times = new ArrayList<>();
         long openRange = SlotMask.range(cfg.openSlot(), cfg.closeSlot());

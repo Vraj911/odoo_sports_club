@@ -20,15 +20,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-/**
- * Backend-only booking engine. Three ideas, all in plain Java:
- *
- *  1. REPRESENTATION  - a court-day is one 48-bit mask; a session is two adjacent bits.
- *  2. MUTUAL EXCLUSION - booking decisions run inside locks on court-day and member-day.
- *  3. LOCK SCOPE      - the lock is held until the database transaction has COMMITTED.
- *
- * Assumes ONE application instance owns the bookings.
- */
 public final class BookingEngine {
     public static final ZoneId IST = ZoneId.of("Asia/Kolkata");
     private final BookingStore store;
