@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,11 +63,11 @@ public class DashboardService {
                 .count();
 
         ZoneId clubZone = ZoneId.of("Asia/Kolkata");
-        ZonedDateTime startOfDay = LocalDate.now(clubZone).atStartOfDay(clubZone);
-        ZonedDateTime endOfDay = startOfDay.plusDays(1);
+        OffsetDateTime startOfDay = LocalDate.now(clubZone).atStartOfDay(clubZone).toOffsetDateTime();
+        OffsetDateTime endOfDay = startOfDay.plusDays(1);
 
         long bookingsToday = bookings.findAll().stream()
-                .filter(b -> !b.getStartTime().isBefore(startOfDay.toInstant()) && b.getStartTime().isBefore(endOfDay.toInstant()))
+                .filter(b -> !b.getStartTime().isBefore(startOfDay) && b.getStartTime().isBefore(endOfDay))
                 .count();
         long totalBookings = bookings.count();
 

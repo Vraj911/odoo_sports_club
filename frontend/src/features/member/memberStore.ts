@@ -1,4 +1,5 @@
 import { useSyncExternalStore, useCallback } from "react";
+import { useAuth } from "@/app/providers/AuthProvider";
 import type {
   MemberProfile,
   MembershipPlan,
@@ -275,6 +276,15 @@ export const memberStore = {
 
 export function useMember() {
   const store = useSyncExternalStore(subscribe, getSnapshot);
+  const { user } = useAuth();
+  const profile = user?.id
+    ? {
+        ...store.profile,
+        id: user.id,
+        name: user.name,
+        ...(user.email ? { email: user.email } : {}),
+      }
+    : store.profile;
 
   const switchMember = useCallback((key: string) => {
     memberStore.switchMember(key);
@@ -319,6 +329,7 @@ export function useMember() {
 
   return {
     ...store,
+    profile,
     unreadCount,
     switchMember,
     renewMembership,

@@ -26,6 +26,7 @@ export function MemberLayout({ route, children }: { route: RouteMeta; children: 
   const { profile, unreadCount } = useMember();
   const go = useGo();
   const [profileOpen, setProfileOpen] = useState(false);
+  const membershipLabel = user?.id ? "Member" : `${profile.tier} Member`;
 
   return (
     <div className="flex min-h-screen bg-backdrop text-chalk pb-20 md:pb-0">
@@ -97,10 +98,10 @@ export function MemberLayout({ route, children }: { route: RouteMeta; children: 
 
           <div className="flex items-center gap-4">
             <StatusPill
-              variant={profile.tier === "Gold" ? "volt" : profile.tier === "Silver" ? "neutral" : "info"}
+              variant={user?.id ? "info" : profile.tier === "Gold" ? "volt" : profile.tier === "Silver" ? "neutral" : "info"}
               showDot
             >
-              {profile.tier} Member
+              {membershipLabel}
             </StatusPill>
 
             <AppLink

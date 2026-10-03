@@ -1,7 +1,7 @@
 import axios from "axios";
 
-/** Shared HTTP client. Base URL comes from env only; no calls are made yet. */
+/** Shared HTTP client for the small live booking surface. */
 export const api = axios.create({
-  baseURL: (import.meta.env["VITE_API_URL"] as string | undefined) ?? "",
+  baseURL: (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:8081",
   withCredentials: true,
 });

@@ -10,6 +10,7 @@ import { PaymentModal } from "@/features/booking/components/PaymentModal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 import { Money, formatINR } from "@/components/shared/Money";
 import { cn } from "@/lib/cn";
 import { useDisclosure } from "@/hooks/useDisclosure";
@@ -17,7 +18,6 @@ import { useBookings, toDateStr } from "@/features/booking/useBookings";
 import type { Sport, Booking, AlternativeSlot, MemberTier } from "@/features/booking/types";
 import { SPORT_LABELS, SPORT_ICONS } from "@/features/booking/types";
 import {
-  COURTS,
   SESSION_MINUTES,
   MAX_BOOKINGS_PER_DAY,
   addMinutes,
@@ -258,12 +258,14 @@ function RecurringStepper({
 export default function BookCourtPage(_props: PageProps) {
   const currentTier: MemberTier = "Gold";
   const bookingState = useBookings(currentTier);
+  const toast = useToast();
   const {
     sport,
     setSport,
     selectedDate,
     setSelectedDate,
     grid,
+    courts,
     loading,
     error,
     todayBookingCount,
@@ -288,8 +290,8 @@ export default function BookCourtPage(_props: PageProps) {
 
   // Derive the selected court + price
   const selectedCourt = useMemo(
-    () => COURTS.find((c) => c.id === selectedSlot?.courtId),
-    [selectedSlot]
+    () => courts.find((c) => c.id === selectedSlot?.courtId),
+    [courts, selectedSlot]
   );
   const currentQuote = useMemo(() => quote(sport), [sport, quote]);
 
@@ -305,9 +307,9 @@ export default function BookCourtPage(_props: PageProps) {
   );
 
   // ── Book now ──
-  const handleBook = useCallback(() => {
+  const handleBook = useCallback(async () => {
     if (!selectedSlot) return;
-    const result = createBooking(selectedSlot.courtId, selectedDate, selectedSlot.time);
+    const result = await createBooking(selectedSlot.courtId, selectedDate, selectedSlot.time);
 
     if (!result.success) {
       if (result.error === "SLOT_TAKEN" || result.error === "INVALID_COURT") {
@@ -318,19 +320,10 @@ export default function BookCourtPage(_props: PageProps) {
       return;
     }
 
-    setPendingBooking(result.booking!);
-
-    // Gold members: instant confirmation (₹0)
-    if (result.booking!.price === 0) {
-      confirmBooking(result.booking!.id);
-      setSelectedSlot(null);
-      // Could show a toast here
-      return;
-    }
-
-    // Open payment modal
-    paymentModal.open();
-  }, [selectedSlot, selectedDate, createBooking, getAlternatives, confirmBooking, paymentModal, slotTakenModal, canBook]);
+    setSelectedSlot(null);
+    setPendingBooking(null);
+    toast.success("Court booked", `${result.booking!.courtName} on ${result.booking!.date} at ${result.booking!.startTime}.`);
+  }, [selectedSlot, selectedDate, createBooking, getAlternatives, slotTakenModal, canBook, toast]);
 
   // ── Payment handlers ──
   const handlePaymentSuccess = useCallback(() => {

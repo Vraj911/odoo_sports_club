@@ -24,7 +24,7 @@ public class ClubProfile extends BaseEntity {
     private String address;
     private String website;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 3)
     private String currency = "INR";
 
     @Column(nullable = false)

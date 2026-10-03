@@ -9,6 +9,7 @@ import com.bookmycourt.membership.dto.RegisterRequest;
 import com.bookmycourt.membership.entity.AppUser;
 import com.bookmycourt.membership.entity.Member;
 import com.bookmycourt.membership.entity.Membership;
+import com.bookmycourt.membership.entity.Plan;
 import com.bookmycourt.membership.mapper.MemberMapper;
 import com.bookmycourt.membership.repository.AppUserRepository;
 import com.bookmycourt.membership.repository.MemberRepository;

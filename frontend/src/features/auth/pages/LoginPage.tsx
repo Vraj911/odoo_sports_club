@@ -20,7 +20,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage({}: PageProps) {
-  const { loginAs } = useAuth();
+  const { loginAs, loginWithCredentials } = useAuth();
   const go = useGo();
   const toast = useToast();
   const [selectedRole, setSelectedRole] = useState<PrimaryRole>("MEMBER");
@@ -54,17 +54,23 @@ export default function LoginPage({}: PageProps) {
 
   const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      if (selectedRole === "MEMBER") {
+        await loginWithCredentials(values.email, values.password);
+        const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+        const returnUrl = params.get("returnUrl");
+        toast.success("Welcome back!", "Your member account is ready.");
+        go(returnUrl ? decodeURIComponent(returnUrl) : "/app/book");
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 600));
       setIsLoading(false);
 
       const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
       const returnUrl = params.get("returnUrl");
 
-      if (selectedRole === "MEMBER") {
-        loginAs("MEMBER", [], "Rahul Sharma");
-        toast.success("Welcome back!", `Signed in as Member (${values.email})`);
-        go(returnUrl ? decodeURIComponent(returnUrl) : "/app");
-      } else if (selectedRole === "ADMIN") {
+      if (selectedRole === "ADMIN") {
         loginAs("ADMIN", [], "Vikramaditya (Admin)");
         toast.success("Admin Access Granted", `Signed in as Super Admin`);
         go(returnUrl ? decodeURIComponent(returnUrl) : "/owner");
@@ -75,7 +81,12 @@ export default function LoginPage({}: PageProps) {
         toast.success("Staff Terminal Authorized", `Signed in as ${staffMember.name} (${staffMember.roleTitle})`);
         go(returnUrl ? decodeURIComponent(returnUrl) : staffMember.home);
       }
-    }, 600);
+    } catch (error) {
+      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message;
+      toast.error("Sign in failed", message || "Check your email/phone and password.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

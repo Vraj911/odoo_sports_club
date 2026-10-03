@@ -21,6 +21,8 @@ import com.bookmycourt.admin.repository.ClubHolidayRepository;
 import com.bookmycourt.admin.repository.ClubProfileRepository;
 import com.bookmycourt.admin.repository.ClubSettingRepository;
 import com.bookmycourt.admin.repository.TaxRateRepository;
+import com.bookmycourt.booking.engine.BookingEngine;
+import com.bookmycourt.common.mapping.SportMapper;
 import com.bookmycourt.common.exception.NotFoundException;
 import com.bookmycourt.membership.entity.AppUser;
 import com.bookmycourt.membership.repository.AppUserRepository;
@@ -40,6 +42,7 @@ public class AdminService {
     private final AuditLogRepository auditLogs;
     private final AppUserRepository users;
     private final AdminMapper mapper;
+    private final BookingEngine bookingEngine;
 
     public AdminService(
             ClubProfileRepository profiles,
@@ -48,7 +51,8 @@ public class AdminService {
             TaxRateRepository taxRates,
             AuditLogRepository auditLogs,
             AppUserRepository users,
-            AdminMapper mapper) {
+            AdminMapper mapper,
+            BookingEngine bookingEngine) {
         this.profiles = profiles;
         this.holidays = holidays;
         this.settings = settings;
@@ -56,6 +60,7 @@ public class AdminService {
         this.auditLogs = auditLogs;
         this.users = users;
         this.mapper = mapper;
+        this.bookingEngine = bookingEngine;
     }
 
     @Transactional
@@ -75,7 +80,15 @@ public class AdminService {
         if (request.currency() != null) p.setCurrency(request.currency());
         if (request.timezone() != null) p.setTimezone(request.timezone());
         profiles.save(p);
-        return new ClubPublicResponse(p.getClubName(), p.getPhone(), p.getEmail(), p.getAddress(), p.getWebsite(), p.getCurrency(), p.getTimezone());
+        var config = bookingEngine.config();
+        return new ClubPublicResponse(
+            p.getClubName(),
+            p.getTimezone(),
+            p.getCurrency(),
+            SportMapper.slotToTime(config.openSlot()),
+            SportMapper.slotToTime(config.closeSlot()),
+            config.dailyCap(),
+            config.holdMinutes());
     }
 
     @Transactional

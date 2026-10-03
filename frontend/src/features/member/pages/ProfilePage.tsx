@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User,
   Mail,
@@ -47,6 +47,16 @@ export default function ProfilePage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setFormData((current) => ({
+      ...current,
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      address: profile.address,
+    }));
+  }, [profile.id, profile.name, profile.email, profile.phone, profile.address]);
 
   const handleSavePersonal = (e: React.FormEvent) => {
     e.preventDefault();

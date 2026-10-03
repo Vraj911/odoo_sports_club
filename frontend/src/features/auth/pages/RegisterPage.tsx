@@ -27,7 +27,7 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage({}: PageProps) {
-  const { loginAs } = useAuth();
+  const { registerMember } = useAuth();
   const go = useGo();
   const toast = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -56,12 +56,23 @@ export default function RegisterPage({}: PageProps) {
 
   const onSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      loginAs("MEMBER");
+    try {
+      const [firstName, ...lastNameParts] = values.fullName.trim().split(/\s+/);
+      await registerMember({
+        firstName: firstName || values.fullName,
+        lastName: lastNameParts.join(" ") || "Member",
+        email: values.email,
+        phone: values.phone,
+        password: values.password,
+      });
       toast.success("Account created successfully!", `Welcome to Champions Club, ${values.fullName}`);
-      go("/app");
-    }, 700);
+      go("/app/book");
+    } catch (error) {
+      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message;
+      toast.error("Registration failed", message || "Please check your details and try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
