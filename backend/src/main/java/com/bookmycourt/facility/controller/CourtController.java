@@ -35,8 +35,10 @@ public class CourtController {
     }
 
     @GetMapping
-    public ApiResponse<List<CourtResponse>> list(@RequestParam(required = false) String sport) {
-        return ApiResponse.success("Courts loaded", courts.list(sport));
+    public ApiResponse<List<CourtResponse>> list(
+            @RequestParam(required = false) String sport,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ApiResponse.success("Courts loaded", courts.list(sport, includeInactive));
     }
 
     @GetMapping("/{id}")

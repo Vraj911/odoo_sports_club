@@ -14,6 +14,8 @@ public record LeaveRequestResponse(
         int days,
         String status,
         String reason,
-        UUID approvedBy
-) {
+        UUID approvedBy,
+        String warning
+        ) {
+
 }

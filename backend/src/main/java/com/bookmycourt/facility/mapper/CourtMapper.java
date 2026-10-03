@@ -16,7 +16,8 @@ public class CourtMapper {
                 SportMapper.indoor(court),
                 court.getLocation(),
                 court.getSlotDurationMinutes(),
-                court.getSlotIntervalMinutes()
+                court.getSlotIntervalMinutes(),
+                court.isActive()
         );
     }
 }

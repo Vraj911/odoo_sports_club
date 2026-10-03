@@ -13,4 +13,6 @@ public interface ShiftScheduleRepository extends JpaRepository<ShiftSchedule, UU
     List<ShiftSchedule> findByShiftDateOrderByStartTimeAsc(LocalDate shiftDate);
     List<ShiftSchedule> findByEmployee_IdAndShiftDateOrderByStartTimeAsc(UUID employeeId, LocalDate shiftDate);
     List<ShiftSchedule> findByEmployee_IdOrderByShiftDateDesc(UUID employeeId);
+    List<ShiftSchedule> findByEmployee_IdAndShiftDateBetweenOrderByShiftDateAscStartTimeAsc(UUID employeeId, LocalDate from, LocalDate to);
+    List<ShiftSchedule> findByShiftDateBetweenOrderByShiftDateAscStartTimeAsc(LocalDate from, LocalDate to);
 }

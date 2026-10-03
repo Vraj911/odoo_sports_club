@@ -12,6 +12,7 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
     Optional<Lead> findByEmailIgnoreCase(String email);
     Optional<Lead> findByPhone(String phone);
     List<Lead> findByStatus(String status);
+    long countByStatus(String status);
     List<Lead> findByOrderByCreatedAtDesc();
 
     @org.springframework.data.jpa.repository.Query("SELECT MAX(l.leadNumber) FROM Lead l")

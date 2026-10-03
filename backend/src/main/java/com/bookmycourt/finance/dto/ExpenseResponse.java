@@ -15,5 +15,6 @@ public record ExpenseResponse(
         String recordedByName,
         String notes,
         Instant createdAt
-) {
+        ) {
+
 }

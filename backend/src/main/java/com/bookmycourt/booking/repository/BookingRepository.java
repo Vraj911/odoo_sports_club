@@ -40,6 +40,17 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("statuses") Collection<String> statuses);
 
     @Query("""
+            SELECT COUNT(b) FROM Booking b
+            WHERE b.startTime >= :from
+              AND b.startTime < :to
+              AND b.status IN :statuses
+            """)
+    long countInRange(
+            @Param("from") OffsetDateTime from,
+            @Param("to") OffsetDateTime to,
+            @Param("statuses") Collection<String> statuses);
+
+    @Query("""
             SELECT DISTINCT b FROM Booking b
             JOIN FETCH b.court
             LEFT JOIN FETCH b.member

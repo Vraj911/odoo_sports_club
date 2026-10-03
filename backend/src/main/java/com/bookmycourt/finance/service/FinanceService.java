@@ -1,10 +1,12 @@
 package com.bookmycourt.finance.service;
 
 import com.bookmycourt.admin.service.ClubQueryService;
-import com.bookmycourt.common.time.ClubTime;
+import com.bookmycourt.common.actor.Actor;
+import com.bookmycourt.common.actor.ActorHolder;
 import com.bookmycourt.common.error.DomainException;
 import com.bookmycourt.common.error.ErrorCode;
 import com.bookmycourt.common.exception.NotFoundException;
+import com.bookmycourt.common.time.ClubTime;
 import com.bookmycourt.finance.dto.CreateInvoiceRequest;
 import com.bookmycourt.finance.dto.ExpenseRequest;
 import com.bookmycourt.finance.dto.ExpenseResponse;
@@ -34,10 +36,31 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class FinanceService {
+
+    /**
+     * FIN-01 payment methods.
+     */
+    private static final Set<String> METHODS = Set.of("CASH", "CARD", "UPI", "ONLINE");
+
+    /**
+     * Manual status moves only (Appendix A). PAID / PARTIAL are set by
+     * payments, never by hand.
+     */
+    private static final Map<String, Set<String>> MANUAL_TRANSITIONS = Map.of(
+            "DRAFT", Set.of("SENT", "VOID"),
+            "SENT", Set.of("OVERDUE", "VOID"),
+            "PARTIAL", Set.of("OVERDUE"),
+            "OVERDUE", Set.of("VOID")
+    );
 
     private final InvoiceRepository invoices;
     private final ExpenseRepository expenses;
@@ -73,6 +96,19 @@ public class FinanceService {
         this.clubQueryService = clubQueryService;
     }
 
+    /**
+     * The logged-in user, never a client-supplied id (audit trail must not be
+     * spoofable).
+     */
+    private AppUser currentUser() {
+        Actor a = ActorHolder.current();
+        if (a == null || a.userId() == null) {
+            return null;
+        }
+        return users.findById(a.userId()).orElse(null);
+    }
+
+    // ---------------------------------------------------------------- invoices
     @Transactional
     public InvoiceResponse createInvoice(CreateInvoiceRequest request) {
         Member member = null;
@@ -88,34 +124,33 @@ public class FinanceService {
         invoice.setStatus("DRAFT");
         invoice.setIssueDate(today);
         invoice.setDueDate(request.dueDate() != null ? request.dueDate() : today.plusDays(15));
-        
+
         String currency = "INR";
         try {
             var profile = clubQueryService.current();
             if (profile != null && profile.currency() != null) {
                 currency = profile.currency();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         invoice.setCurrency(currency);
         invoice.setNotes(request.notes());
-
-        if (request.createdByUserId() != null) {
-            AppUser u = users.findById(request.createdByUserId()).orElse(null);
-            invoice.setCreatedBy(u);
-        }
+        invoice.setCreatedBy(currentUser());
 
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal taxTotal = BigDecimal.ZERO;
-
         List<InvoiceLine> lines = new ArrayList<>();
+
         for (InvoiceLineRequest item : request.items()) {
             BigDecimal qty = item.quantity();
             BigDecimal price = item.unitPrice();
             BigDecimal taxRate = item.taxRate() != null ? item.taxRate() : BigDecimal.ZERO;
+            if (taxRate.signum() < 0 || taxRate.compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw new DomainException(ErrorCode.VALIDATION_FAILED, "Tax rate must be between 0 and 100");
+            }
 
-            BigDecimal lineSubtotal = qty.multiply(price);
+            BigDecimal lineSubtotal = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
             BigDecimal taxAmount = lineSubtotal.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal lineTotal = lineSubtotal.add(taxAmount);
 
             InvoiceLine line = new InvoiceLine();
             line.setInvoice(invoice);
@@ -126,22 +161,21 @@ public class FinanceService {
             line.setUnitPrice(price);
             line.setTaxRate(taxRate);
             line.setTaxAmount(taxAmount);
-            line.setLineTotal(lineTotal);
+            line.setLineTotal(lineSubtotal.add(taxAmount));
             lines.add(line);
 
             subtotal = subtotal.add(lineSubtotal);
             taxTotal = taxTotal.add(taxAmount);
         }
 
+        // Intra-state split. IGST needs the client's GSTIN/state, which this module does not hold yet (FIN-07/FIN-08).
         BigDecimal cgst = taxTotal.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-        BigDecimal sgst = taxTotal.subtract(cgst);
-        BigDecimal igst = BigDecimal.ZERO;
 
         invoice.setSubtotal(subtotal);
         invoice.setTaxTotal(taxTotal);
         invoice.setCgst(cgst);
-        invoice.setSgst(sgst);
-        invoice.setIgst(igst);
+        invoice.setSgst(taxTotal.subtract(cgst));
+        invoice.setIgst(BigDecimal.ZERO);
         invoice.setTotal(subtotal.add(taxTotal));
         invoice.setAmountPaid(BigDecimal.ZERO);
         invoice.setLines(lines);
@@ -152,65 +186,91 @@ public class FinanceService {
 
     @Transactional
     public InvoiceResponse updateStatus(UUID invoiceId, UpdateInvoiceStatusRequest request) {
-        Invoice invoice = invoices.findById(invoiceId)
+        Invoice invoice = invoices.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found"));
-        String curStatus = invoice.getStatus();
-        String nextStatus = request.status().toUpperCase();
-        if ("PAID".equalsIgnoreCase(curStatus) && !"VOID".equalsIgnoreCase(nextStatus) && !"CANCELLED".equalsIgnoreCase(nextStatus)) {
-            throw new DomainException(ErrorCode.INVALID_STATE, "Cannot change status of a PAID invoice to " + nextStatus);
+        if ("CREDIT_NOTE".equalsIgnoreCase(invoice.getKind())) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Credit notes cannot be edited");
         }
-        if ("VOID".equalsIgnoreCase(curStatus) || "CANCELLED".equalsIgnoreCase(curStatus)) {
-            throw new DomainException(ErrorCode.INVALID_STATE, "Cannot update a VOID or CANCELLED invoice");
+
+        String cur = invoice.getStatus().toUpperCase(Locale.ROOT);
+        String next = request.status().trim().toUpperCase(Locale.ROOT);
+
+        if (cur.equals(next)) {
+            return mapper.toResponse(invoice);
         }
-        invoice.setStatus(nextStatus);
+        if (!MANUAL_TRANSITIONS.getOrDefault(cur, Set.of()).contains(next)) {
+            String hint = "PAID".equals(cur) || "PARTIAL".equals(cur)
+                    ? " (an invoice with payments can only be reversed with a credit note)" : "";
+            throw new DomainException(ErrorCode.INVALID_STATE,
+                    "Cannot change invoice from " + cur + " to " + next + hint);
+        }
+        invoice.setStatus(next);
         invoices.save(invoice);
         return mapper.toResponse(invoice);
     }
 
     @Transactional
     public InvoiceResponse recordPayment(UUID invoiceId, RecordInvoicePaymentRequest request) {
-        Invoice invoice = invoices.findById(invoiceId)
+        String method = request.method().trim().toUpperCase(Locale.ROOT);
+        if (!METHODS.contains(method)) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Payment method must be one of " + METHODS);
+        }
+        String reference = (request.reference() == null || request.reference().isBlank()) ? null : request.reference().trim();
+        if (!"CASH".equals(method) && reference == null) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "A reference number is required for " + method + " payments");
+        }
+
+        // Row lock: two simultaneous payments can no longer both pass the outstanding check.
+        Invoice invoice = invoices.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found"));
 
+        String status = invoice.getStatus().toUpperCase(Locale.ROOT);
+        if ("CREDIT_NOTE".equalsIgnoreCase(invoice.getKind()) || Set.of("VOID", "CANCELLED", "PAID").contains(status)) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Payments cannot be recorded on a " + status + " invoice");
+        }
+
+        // Retry safety (NFR-01): the same reference on the same invoice is the same payment.
+        if (reference != null && payments.existsByInvoiceIdAndReference(invoiceId, reference)) {
+            return mapper.toResponse(invoice);
+        }
+
+        BigDecimal amount = request.amount().setScale(2, RoundingMode.HALF_UP);
         BigDecimal outstanding = invoice.getTotal().subtract(invoice.getAmountPaid());
-        if (request.amount().compareTo(outstanding) > 0) {
+        if (amount.compareTo(outstanding) > 0) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Payment amount exceeds outstanding balance of " + outstanding);
         }
 
-        BigDecimal newPaid = invoice.getAmountPaid().add(request.amount());
+        BigDecimal newPaid = invoice.getAmountPaid().add(amount);
         invoice.setAmountPaid(newPaid);
-        if (newPaid.compareTo(invoice.getTotal()) >= 0) {
-            invoice.setStatus("PAID");
-        } else {
-            invoice.setStatus("PARTIAL");
-        }
+        invoice.setStatus(newPaid.compareTo(invoice.getTotal()) >= 0 ? "PAID" : "PARTIAL");
         invoices.save(invoice);
 
-        // Record in payment table
         Payment p = new Payment();
         p.setMember(invoice.getMember());
         p.setInvoiceId(invoice.getId());
-        p.setSourceType("INVOICE");
+        p.setSourceType(paymentSource(invoice)); // COURT / MEMBERSHIP / SHOP / BAR / OTHER (FIN-01), not "INVOICE"
         p.setSourceId(invoice.getId());
-        p.setAmount(request.amount());
-        p.setMethod(request.method().toUpperCase());
+        p.setAmount(amount);
+        p.setMethod(method);
         p.setStatus("PAID");
-        p.setPaidAt(Instant.now());
-        p.setReference(request.reference());
-        payments.save(p);
+        p.setPaidAt(Instant.now(clock));
+        p.setReference(reference);
+        Payment saved = payments.save(p);
 
-        // Record double-entry ledger posting
+        // Ledger: make sure the invoice's receivable exists, then post THIS payment.
+        // Keyed by payment id, so a 2nd partial payment is no longer swallowed by the idempotency check.
+        ledgerService.ensureInvoiceIssued(invoice);
         ledgerService.postPayment(
-                "INVOICE",
-                invoice.getId(),
+                "INVOICE_PAYMENT",
+                saved.getId(),
                 "PAYMENT",
                 "Payment for Invoice " + invoice.getInvoiceNumber(),
                 invoice.getMember(),
                 "INVOICE",
-                request.method().toUpperCase(),
-                request.amount(),
+                method,
+                amount,
                 false,
-                null
+                currentUser()
         );
 
         return mapper.toResponse(invoice);
@@ -218,78 +278,113 @@ public class FinanceService {
 
     @Transactional
     public InvoiceResponse issueCreditNote(UUID invoiceId, String reason) {
-        Invoice original = invoices.findById(invoiceId)
+        Invoice original = invoices.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found: " + invoiceId));
         if (!"PAID".equalsIgnoreCase(original.getStatus()) && !"PARTIAL".equalsIgnoreCase(original.getStatus())) {
             throw new DomainException(ErrorCode.INVALID_STATE, "Credit notes can only be issued against PAID or PARTIAL invoices");
         }
-        Invoice creditNote = new Invoice();
-        creditNote.setInvoiceNumber("CN-" + numberSeries.nextInvoiceNumber());
-        creditNote.setMember(original.getMember());
-        creditNote.setStatus("ISSUED");
-        creditNote.setIssueDate(LocalDate.now(clock.withZone(ClubTime.IST)));
-        creditNote.setDueDate(LocalDate.now(clock.withZone(ClubTime.IST)));
-        creditNote.setCurrency(original.getCurrency());
-        creditNote.setNotes("Credit Note for " + original.getInvoiceNumber() + ": " + (reason != null ? reason : ""));
-        creditNote.setCreditNoteOf(original.getId());
-        creditNote.setKind("CREDIT_NOTE");
-        creditNote.setSubtotal(original.getSubtotal().negate());
-        creditNote.setTaxTotal(original.getTaxTotal().negate());
-        creditNote.setCgst(original.getCgst() != null ? original.getCgst().negate() : BigDecimal.ZERO);
-        creditNote.setSgst(original.getSgst() != null ? original.getSgst().negate() : BigDecimal.ZERO);
-        creditNote.setIgst(original.getIgst() != null ? original.getIgst().negate() : BigDecimal.ZERO);
-        creditNote.setTotal(original.getTotal().negate());
-        creditNote.setAmountPaid(BigDecimal.ZERO);
-        invoices.save(creditNote);
+        if (reason == null || reason.isBlank()) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "A reason is required for a credit note");
+        }
+
+        LocalDate today = LocalDate.now(clock.withZone(ClubTime.IST));
+        Invoice cn = new Invoice();
+        // TODO BR-12: use a separate credit-note number series. This still consumes an invoice number.
+        cn.setInvoiceNumber("CN-" + numberSeries.nextInvoiceNumber());
+        cn.setMember(original.getMember());
+        cn.setStatus("ISSUED");
+        cn.setIssueDate(today);
+        cn.setDueDate(today);
+        cn.setCurrency(original.getCurrency());
+        cn.setNotes("Credit Note for " + original.getInvoiceNumber() + ": " + reason.trim());
+        cn.setCreditNoteOf(original.getId());
+        cn.setKind("CREDIT_NOTE");
+        cn.setCreatedBy(currentUser());
+        cn.setSubtotal(original.getSubtotal().negate());
+        cn.setTaxTotal(original.getTaxTotal().negate());
+        cn.setCgst(original.getCgst() != null ? original.getCgst().negate() : BigDecimal.ZERO);
+        cn.setSgst(original.getSgst() != null ? original.getSgst().negate() : BigDecimal.ZERO);
+        cn.setIgst(original.getIgst() != null ? original.getIgst().negate() : BigDecimal.ZERO);
+        cn.setTotal(original.getTotal().negate());
+        cn.setAmountPaid(BigDecimal.ZERO);
+        invoices.save(cn);
 
         original.setStatus("CANCELLED");
         invoices.save(original);
-
-        return mapper.toResponse(creditNote);
+        return mapper.toResponse(cn);
     }
 
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoice(UUID id) {
-        Invoice invoice = invoices.findById(id).orElseThrow(() -> new NotFoundException("Invoice not found"));
-        return mapper.toResponse(invoice);
+        return mapper.toResponse(invoices.findById(id).orElseThrow(() -> new NotFoundException("Invoice not found")));
     }
 
     @Transactional(readOnly = true)
     public List<InvoiceResponse> listInvoices(UUID memberId, String status) {
-        if (memberId != null) {
-            return invoices.findByMember_IdOrderByCreatedAtDesc(memberId).stream().map(mapper::toResponse).toList();
+        List<Invoice> rows = memberId != null
+                ? invoices.findByMember_IdOrderByCreatedAtDesc(memberId)
+                : (status != null && !status.isBlank() ? invoices.findByStatus(status.toUpperCase(Locale.ROOT))
+                : invoices.findByOrderByCreatedAtDesc());
+        if (memberId != null && status != null && !status.isBlank()) {
+            String s = status.toUpperCase(Locale.ROOT);
+            rows = rows.stream().filter(i -> s.equalsIgnoreCase(i.getStatus())).toList();
         }
-        if (status != null && !status.isBlank()) {
-            return invoices.findByStatus(status).stream().map(mapper::toResponse).toList();
-        }
-        return invoices.findByOrderByCreatedAtDesc().stream().map(mapper::toResponse).toList();
+        return rows.stream().map(mapper::toResponse).toList();
     }
 
+    // ---------------------------------------------------------------- expenses
     @Transactional
     public ExpenseResponse recordExpense(ExpenseRequest request) {
+        String method = request.paymentMethod().trim().toUpperCase(Locale.ROOT);
+        if (!METHODS.contains(method)) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Payment method must be one of " + METHODS);
+        }
         Expense exp = new Expense();
         exp.setExpenseNumber(numberSeries.nextExpenseNumber());
-        exp.setExpenseType(request.expenseType());
+        exp.setExpenseType(request.expenseType().trim().toUpperCase(Locale.ROOT));
         exp.setDescription(request.description());
-        exp.setAmount(request.amount());
-        exp.setPaymentMethod(request.paymentMethod());
+        exp.setAmount(request.amount().setScale(2, RoundingMode.HALF_UP));
+        exp.setPaymentMethod(method);
         exp.setIncurredAt(request.incurredAt() != null ? request.incurredAt() : Instant.now(clock));
         exp.setNotes(request.notes());
-
-        if (request.recordedByUserId() != null) {
-            AppUser u = users.findById(request.recordedByUserId()).orElse(null);
-            exp.setRecordedBy(u);
-        }
-
+        exp.setRecordedBy(currentUser());
         expenses.save(exp);
         return mapper.toResponse(exp);
     }
 
     @Transactional(readOnly = true)
     public List<ExpenseResponse> listExpenses(String expenseType) {
-        if (expenseType != null && !expenseType.isBlank()) {
-            return expenses.findByExpenseType(expenseType).stream().map(mapper::toResponse).toList();
+        List<Expense> rows = (expenseType != null && !expenseType.isBlank())
+                ? expenses.findByExpenseType(expenseType.trim().toUpperCase(Locale.ROOT))
+                : expenses.findByOrderByIncurredAtDesc();
+        return rows.stream().map(mapper::toResponse).toList();
+    }
+
+    // ----------------------------------------------------------------- helpers
+    /**
+     * FIN-01 source tag, derived from what the invoice is for. Mixed or unknown
+     * lines become OTHER.
+     */
+    private static String paymentSource(Invoice inv) {
+        Set<String> types = inv.getLines() == null ? Set.of() : inv.getLines().stream()
+                .map(InvoiceLine::getSourceType)
+                .filter(Objects::nonNull)
+                .map(s -> s.toUpperCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+        if (types.size() != 1) {
+            return "OTHER";
         }
-        return expenses.findAll().stream().map(mapper::toResponse).toList();
+        return switch (types.iterator().next()) {
+            case "BOOKING", "COURT" ->
+                "COURT";
+            case "MEMBERSHIP", "PLAN" ->
+                "MEMBERSHIP";
+            case "SHOP", "SHOP_ORDER" ->
+                "SHOP";
+            case "BAR", "BAR_ORDER", "TAB" ->
+                "BAR";
+            default ->
+                "OTHER";
+        };
     }
 }

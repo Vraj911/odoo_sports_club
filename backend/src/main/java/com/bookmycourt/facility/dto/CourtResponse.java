@@ -9,6 +9,7 @@ public record CourtResponse(
         boolean indoor,
         String location,
         int slotDurationMinutes,
-        int slotIntervalMinutes
+        int slotIntervalMinutes,
+        boolean active
 ) {
 }

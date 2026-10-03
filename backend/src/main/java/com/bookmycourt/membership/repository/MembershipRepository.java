@@ -15,6 +15,9 @@ public interface MembershipRepository extends JpaRepository<Membership, UUID> {
     List<Membership> findByMember_IdOrderByStartDateDesc(UUID memberId);
     List<Membership> findByStatusIn(List<String> statuses);
 
+    long countByStatusIn(List<String> statuses);
+    long countByStatusInAndEndDateBetween(List<String> statuses, LocalDate from, LocalDate to);
+
     @Query("""
             SELECT m FROM Membership m
             JOIN FETCH m.plan

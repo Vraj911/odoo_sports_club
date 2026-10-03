@@ -26,9 +26,9 @@ public class PlanService {
     private final Clock clock;
 
     public PlanService(PlanRepository plans,
-                       MemberMapper mapper,
-                       DomainEventPublisher eventPublisher,
-                       Clock clock) {
+            MemberMapper mapper,
+            DomainEventPublisher eventPublisher,
+            Clock clock) {
         this.plans = plans;
         this.mapper = mapper;
         this.eventPublisher = eventPublisher;
@@ -79,12 +79,12 @@ public class PlanService {
         if (p.getValidityDays() < 1) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "validity_days must be at least 1");
         }
-        if (p.getShopDiscountPercent() != null &&
-                (p.getShopDiscountPercent().compareTo(BigDecimal.ZERO) < 0 || p.getShopDiscountPercent().compareTo(BigDecimal.valueOf(100)) > 0)) {
+        if (p.getShopDiscountPercent() != null
+                && (p.getShopDiscountPercent().compareTo(BigDecimal.ZERO) < 0 || p.getShopDiscountPercent().compareTo(BigDecimal.valueOf(100)) > 0)) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Shop discount percent must be between 0 and 100");
         }
-        if (p.getBarDiscountPercent() != null &&
-                (p.getBarDiscountPercent().compareTo(BigDecimal.ZERO) < 0 || p.getBarDiscountPercent().compareTo(BigDecimal.valueOf(100)) > 0)) {
+        if (p.getBarDiscountPercent() != null
+                && (p.getBarDiscountPercent().compareTo(BigDecimal.ZERO) < 0 || p.getBarDiscountPercent().compareTo(BigDecimal.valueOf(100)) > 0)) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Bar discount percent must be between 0 and 100");
         }
     }
