@@ -1,8 +1,6 @@
 package com.bookmycourt.booking.service;
 
 import com.bookmycourt.booking.engine.CourtDayCalendar;
-import com.bookmycourt.booking.engine.SlotMask;
-import com.bookmycourt.booking.entity.Booking;
 import com.bookmycourt.booking.repository.BookingRepository;
 import com.bookmycourt.common.concurrency.Keys;
 import com.bookmycourt.common.recovery.Rebuildable;
@@ -12,15 +10,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
+/**
+ * Rebuilds the in-memory grid from the occupancy table. The DB is the source of
+ * truth.
+ */
 @Component
 public class CalendarRebuilder implements Rebuildable {
 
@@ -55,41 +53,43 @@ public class CalendarRebuilder implements Rebuildable {
 
         LocalDate today = LocalDate.now(clock.withZone(ClubTime.IST));
         OffsetDateTime from = today.minusDays(1).atStartOfDay(ClubTime.IST).toOffsetDateTime();
-        OffsetDateTime to = today.plusDays(60).atTime(23, 59, 59).atZone(ClubTime.IST).toOffsetDateTime();
+        OffsetDateTime to = today.plusDays(61).atStartOfDay(ClubTime.IST).toOffsetDateTime();
 
         List<OccupancyService.OccupancyItem> items = occupancyService.findActiveBetween(from, to);
 
         for (OccupancyService.OccupancyItem item : items) {
-            ZonedDateTime localStart = item.startTime().atZoneSameInstant(ClubTime.IST);
-            ZonedDateTime localEnd = item.endTime().atZoneSameInstant(ClubTime.IST);
-            LocalDate day = localStart.toLocalDate();
+            LocalDate first = item.startTime().atZoneSameInstant(ClubTime.IST).toLocalDate();
+            LocalDate last = DayMasks.lastDay(item.startTime(), item.endTime());
 
-            int startSlot = localStart.getHour() * 2 + localStart.getMinute() / 30;
-            int endSlot = localEnd.getHour() * 2 + localEnd.getMinute() / 30;
-            if (endSlot <= startSlot) {
-                endSlot = startSlot + 2; // Default 1 hour
+            boolean pending = false;
+            if ("BOOKING".equals(item.occupancyType()) && item.bookingId() != null) {
+                pending = bookingRepository.findById(item.bookingId())
+                        .map(b -> "PENDING".equalsIgnoreCase(b.getStatus()))
+                        .orElse(false);
             }
-            long mask = SlotMask.range(startSlot, endSlot);
 
-            CourtDayCalendar cal = registry.get(new Keys.CourtDay(item.courtId(), day));
-
-            switch (item.occupancyType()) {
-                case "BOOKING" -> {
-                    boolean isPending = false;
-                    if (item.bookingId() != null) {
-                        isPending = bookingRepository.findById(item.bookingId())
-                                .map(b -> "PENDING".equalsIgnoreCase(b.getStatus()))
-                                .orElse(false);
-                    }
-                    if (isPending) {
-                        cal.occupyHeld(mask);
-                    } else {
-                        cal.occupyBooked(mask);
-                    }
+            // Each day gets only its own clipped part of the range (multi-day blocks, overnight blocks).
+            for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1)) {
+                long mask = DayMasks.mask(item.startTime(), item.endTime(), day);
+                if (mask == 0) {
+                    continue;
                 }
-                case "SOCIAL_SESSION" -> cal.occupySocial(mask);
-                case "MAINTENANCE" -> cal.occupyBlocked(mask);
-                default -> cal.occupyBooked(mask);
+                CourtDayCalendar cal = registry.get(new Keys.CourtDay(item.courtId(), day));
+                switch (item.occupancyType()) {
+                    case "BOOKING" -> {
+                        if (pending) {
+                            cal.occupyHeld(mask); 
+                        }else {
+                            cal.occupyBooked(mask);
+                        }
+                    }
+                    case "SOCIAL_SESSION" ->
+                        cal.occupySocial(mask);
+                    case "MAINTENANCE" ->
+                        cal.occupyBlocked(mask);
+                    default ->
+                        cal.occupyBooked(mask);
+                }
             }
         }
         log.info("CalendarRebuilder completed. Loaded {} occupancy records.", items.size());
@@ -100,18 +100,17 @@ public class CalendarRebuilder implements Rebuildable {
         List<String> discrepancies = new ArrayList<>();
         LocalDate today = LocalDate.now(clock.withZone(ClubTime.IST));
         OffsetDateTime from = today.atStartOfDay(ClubTime.IST).toOffsetDateTime();
-        OffsetDateTime to = today.plusDays(7).atTime(23, 59, 59).atZone(ClubTime.IST).toOffsetDateTime();
+        OffsetDateTime to = today.plusDays(8).atStartOfDay(ClubTime.IST).toOffsetDateTime();
 
-        List<OccupancyService.OccupancyItem> items = occupancyService.findActiveBetween(from, to);
-        for (OccupancyService.OccupancyItem item : items) {
-            ZonedDateTime localStart = item.startTime().atZoneSameInstant(ClubTime.IST);
-            LocalDate day = localStart.toLocalDate();
-            int startSlot = localStart.getHour() * 2 + localStart.getMinute() / 30;
-            long mask = SlotMask.session(startSlot);
-
-            CourtDayCalendar cal = registry.get(new Keys.CourtDay(item.courtId(), day));
-            if ((cal.occupied() & mask) == 0) {
-                discrepancies.add("Missing mask for court " + item.courtId() + " on " + day + " slot " + startSlot);
+        for (OccupancyService.OccupancyItem item : occupancyService.findActiveBetween(from, to)) {
+            LocalDate first = item.startTime().atZoneSameInstant(ClubTime.IST).toLocalDate();
+            LocalDate last = DayMasks.lastDay(item.startTime(), item.endTime());
+            for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1)) {
+                long mask = DayMasks.mask(item.startTime(), item.endTime(), day);
+                CourtDayCalendar cal = registry.get(new Keys.CourtDay(item.courtId(), day));
+                if (mask != 0 && (cal.occupied() & mask) != mask) {
+                    discrepancies.add("Missing mask for court " + item.courtId() + " on " + day);
+                }
             }
         }
         return discrepancies;
