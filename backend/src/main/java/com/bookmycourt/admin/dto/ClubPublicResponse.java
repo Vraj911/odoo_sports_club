@@ -1,5 +1,7 @@
 package com.bookmycourt.admin.dto;
 
+import java.util.List;
+
 public record ClubPublicResponse(
         String clubName,
         String timezone,
@@ -7,6 +9,12 @@ public record ClubPublicResponse(
         String openTime,
         String closeTime,
         int dailyCap,
-        int holdMinutes
+        int holdMinutes,
+        String phone,
+        String email,
+        String address,
+        String website,
+        String logoUrl,
+        List<OpeningHoursResponse> openingHours
 ) {
 }

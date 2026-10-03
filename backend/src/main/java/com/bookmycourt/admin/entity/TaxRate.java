@@ -26,8 +26,17 @@ public class TaxRate {
     @Column(nullable = false, unique = true, length = 100)
     private String name;
 
+    @Column(name = "item_type", nullable = false)
+    private TaxItemType itemType;
+
+    @Column(name = "hsn_code", length = 8)
+    private String hsnCode;
+
     @Column(nullable = false)
     private BigDecimal rate = BigDecimal.ZERO;
+
+    @Column(name = "tax_inclusive", nullable = false)
+    private boolean taxInclusive;
 
     @Column(name = "effective_from", nullable = false)
     private LocalDate effectiveFrom;

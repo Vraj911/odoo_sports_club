@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -30,4 +31,14 @@ public class ClubHoliday {
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
+
+    /** true = full closure; false = open with special hours below (HOLIDAY day-type pricing). */
+    @Column(name = "is_closed", nullable = false)
+    private boolean closed = true;
+
+    @Column(name = "open_time")
+    private LocalTime openTime;
+
+    @Column(name = "close_time")
+    private LocalTime closeTime;
 }

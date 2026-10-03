@@ -11,6 +11,7 @@ import { ConsoleLayout } from "@/components/layout/ConsoleLayout";
 import { PageSkeleton } from "@/components/shared/PageSkeleton";
 import NotFound from "@/pages/NotFound";
 import Forbidden from "@/pages/Forbidden";
+import ServerError from "@/pages/ServerError";
 import type { LayoutKind, PageProps, RouteMeta } from "@/types/common";
 
 const LAYOUTS: Record<LayoutKind, ComponentType<{ route: RouteMeta; children: React.ReactNode }>> = {
@@ -50,6 +51,7 @@ function Transition({ id, children }: { id: string; children: React.ReactNode })
 /** Resolves a pathname against routeConfig and renders guards + layout + lazy page. */
 export function RouteRenderer({ pathname }: { pathname: string }) {
   if (pathname === "/403") return <PublicLayout route={FORBIDDEN}><Forbidden /></PublicLayout>;
+  if (pathname === "/500") return <PublicLayout route={SERVER_ERROR}><ServerError /></PublicLayout>;
   const match = matchRoute(pathname);
   if (!match) return <PublicLayout route={NOT_FOUND}><NotFound /></PublicLayout>;
 
@@ -77,3 +79,4 @@ export function RouteRenderer({ pathname }: { pathname: string }) {
 
 const NOT_FOUND = { path: "*", title: "Out of bounds", layout: "public", access: [], phase: 1, srsIds: [] } as unknown as RouteMeta;
 const FORBIDDEN = { ...NOT_FOUND, path: "/403", title: "Forbidden" } as RouteMeta;
+const SERVER_ERROR = { ...NOT_FOUND, path: "/500", title: "Server Error" } as RouteMeta;

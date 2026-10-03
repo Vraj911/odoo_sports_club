@@ -1,4 +1,4 @@
-package com.bookmycourt.common.config;
+package com.bookmycourt.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

@@ -33,7 +33,8 @@ public class ClubSetting {
     @Column(name = "updated_by")
     private UUID updatedBy;
 
-    @Column(name = "updated_at", insertable = false, updatable = false)
+    /** Now written by the service (was insertable/updatable=false, so API responses returned null/stale). */
+    @Column(name = "updated_at")
     private Instant updatedAt;
 
     public String getValue() {

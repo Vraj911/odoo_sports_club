@@ -1,6 +1,7 @@
 package com.bookmycourt.admin.dto;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 public record AuditLogResponse(
@@ -12,6 +13,9 @@ public record AuditLogResponse(
         UUID entityId,
         Instant occurredAt,
         String userAgent,
-        String details
+        String reason,
+        Map<String, Object> beforeValue,
+        Map<String, Object> afterValue,
+        Map<String, Object> details
 ) {
 }
