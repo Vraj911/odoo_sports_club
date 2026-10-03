@@ -150,7 +150,6 @@ public class MemberService {
         member.setLastName(req.lastName());
         member.setEmail(normEmail);
         member.setPhone(normPhone);
-        member.setAddress(req.address());
         member.setDateOfBirth(req.dateOfBirth());
         member.setGuardianName(req.guardianName());
         member.setGuardianPhone(normalizePhone(req.guardianPhone()));
@@ -205,8 +204,11 @@ public class MemberService {
         String activePlan = currentMembership.map(m -> m.getPlan().getName()).orElse("NONE");
         Integer daysToExpiry = currentMembership.map(m -> (int) ChronoUnit.DAYS.between(today, m.getEndDate())).orElse(null);
 
-        var nextBookingOpt = bookings.findUpcomingForMember(member.getId(), OffsetDateTime.now(clock))
-                .stream().findFirst();
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        var memberBookings = bookings.findDetailedByMember(member.getId());
+        var nextBookingOpt = memberBookings.stream()
+                .filter(b -> b.getStartTime().isAfter(now))
+                .min(Comparator.comparing(b -> b.getStartTime()));
         String nextBooking = nextBookingOpt.map(b -> b.getCourt().getName() + " at " + b.getStartTime()).orElse(null);
 
         return new MemberScanResponse(
@@ -238,7 +240,7 @@ public class MemberService {
                 )));
 
         // Add bookings
-        bookings.findByMemberIdOrderByStartTimeDesc(memberId, Pageable.unpaged()).forEach(b ->
+        bookings.findDetailedByMember(memberId).forEach(b ->
                 items.add(new MemberTimelineItem(
                         "BOOKING",
                         b.getCreatedAt(),
