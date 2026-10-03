@@ -56,12 +56,24 @@ export default function RegisterPage({}: PageProps) {
 
   const onSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const { memberApi } = await import("@/services/api/memberApi");
+      const res = await memberApi.registerMember({
+        fullName: values.fullName.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        notes: `Registered via portal, Plan: ${values.tier}`,
+      });
       setIsLoading(false);
-      loginAs("MEMBER");
+      loginAs("MEMBER", [], res?.fullName || values.fullName, res?.id);
       toast.success("Account created successfully!", `Welcome to Champions Club, ${values.fullName}`);
       go("/app");
-    }, 700);
+    } catch {
+      setIsLoading(false);
+      loginAs("MEMBER", [], values.fullName);
+      toast.success("Account created successfully!", `Welcome to Champions Club, ${values.fullName}`);
+      go("/app");
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useCallback } from "react";
+import { useSyncExternalStore, useCallback, useEffect } from "react";
 import type { Booking, Sport } from "./types";
 import {
   generateInitialMemberBookings,
@@ -8,8 +8,10 @@ import {
   SESSION_MINUTES,
   timeToMinutes,
 } from "./sampleData";
+import { bookingApi } from "@/services/api/bookingApi";
 
 let memberBookings: Booking[] = generateInitialMemberBookings();
+let isInitialized = false;
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -32,6 +34,48 @@ export const bookingStore = {
 
   getById: (id: string): Booking | undefined => {
     return memberBookings.find((b) => b.id === id);
+  },
+
+  init: async () => {
+    if (isInitialized) return;
+    try {
+      const remote = await bookingApi.listBookings();
+      if (remote && remote.length > 0) {
+        const mapped: Booking[] = remote.map((r) => ({
+          id: r.id,
+          courtId: r.courtId,
+          courtName: r.courtName || "Court",
+          sport: (r.sport as Sport) || "tennis",
+          date: r.date,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          status: (r.status as Booking["status"]) || "CONFIRMED",
+          price: r.price || 0,
+          paymentStatus: r.paymentStatus || "PAID",
+          memberId: r.memberId || "SELF",
+          memberName: r.memberName || "You",
+          memberTier: "Gold",
+          guestCount: 0,
+          createdAt: Date.now() - 3600000,
+          timeline: [
+            {
+              status: (r.status as Booking["status"]) || "CONFIRMED",
+              timestamp: Date.now() - 3600000,
+              note: `Booking ${r.bookingRef || r.id} synchronized from backend`,
+            },
+          ],
+        }));
+        // Merge without duplicate IDs
+        const existingIds = new Set(memberBookings.map((b) => b.id));
+        const newOnes = mapped.filter((b) => !existingIds.has(b.id));
+        memberBookings = [...newOnes, ...memberBookings];
+        notify();
+      }
+      isInitialized = true;
+    } catch {
+      // Backend unavailable; fallback smoothly to local store
+      isInitialized = true;
+    }
   },
 
   cancel: (
@@ -76,6 +120,12 @@ export const bookingStore = {
     });
 
     notify();
+
+    // Sync with backend API
+    bookingApi.cancelBooking(id, reason).catch(() => {
+      // Silent error handling for demo continuity
+    });
+
     return { success: true, result: policy };
   },
 
@@ -95,8 +145,6 @@ export const bookingStore = {
     const newStartMin = timeToMinutes(newStartTime);
     const newEndMin = timeToMinutes(computedEndTime);
 
-    // Simulated collision check:
-    // If the slot matches a hardcoded "already taken" test slot (e.g. 10:00 on Tennis 1) or has an overlap
     const hasCollision = memberBookings.some(
       (b) =>
         b.id !== id &&
@@ -147,17 +195,58 @@ export const bookingStore = {
     });
 
     notify();
+
+    // Sync with backend API
+    bookingApi
+      .rescheduleBooking(id, {
+        newCourtId,
+        newDate,
+        newStartTime,
+      })
+      .catch(() => {
+        // Silent fallback
+      });
+
     return { success: true, booking: updatedBooking };
+  },
+
+  checkIn: (id: string) => {
+    const booking = memberBookings.find((b) => b.id === id);
+    if (!booking) return;
+
+    memberBookings = memberBookings.map((b) =>
+      b.id === id ? { ...b, checkedInAt: Date.now() } : b
+    );
+    notify();
+
+    bookingApi.checkIn(id).catch(() => {});
   },
 
   addBooking: (booking: Booking) => {
     memberBookings = [booking, ...memberBookings];
     notify();
+
+    // Asynchronously register in backend
+    bookingApi
+      .createBooking({
+        courtId: booking.courtId,
+        date: booking.date,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        sport: booking.sport,
+        memberTier: booking.memberTier,
+        price: booking.price,
+      })
+      .catch(() => {});
   },
 };
 
 export function useMemberBookings() {
   const bookings = useSyncExternalStore(subscribe, getSnapshot);
+
+  useEffect(() => {
+    bookingStore.init();
+  }, []);
 
   const cancelBooking = useCallback((id: string, reason?: string) => {
     return bookingStore.cancel(id, reason);
@@ -190,10 +279,15 @@ export function useMemberBookings() {
     return bookingStore.getById(id);
   }, []);
 
+  const checkIn = useCallback((id: string) => {
+    return bookingStore.checkIn(id);
+  }, []);
+
   return {
     bookings,
     cancelBooking,
     rescheduleBooking,
     getBooking,
+    checkIn,
   };
 }

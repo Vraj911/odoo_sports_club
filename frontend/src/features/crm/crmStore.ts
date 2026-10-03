@@ -144,6 +144,20 @@ export const crmActions = {
     };
     notify();
 
+    import("@/services/api/crmApi").then(({ crmApi }) => {
+      crmApi
+        .createLead({
+          name: payload.name,
+          phone: payload.phone,
+          email: payload.email,
+          source: payload.source,
+          sportInterest: payload.interest,
+          estimatedValue: payload.estimatedValue,
+          notes: payload.notes,
+        })
+        .catch(() => {});
+    });
+
     toast({
       type: "info",
       title: "Lead Created",
@@ -191,6 +205,10 @@ export const crmActions = {
       activities: [stageActivity, ...state.activities],
     };
     notify();
+
+    import("@/services/api/crmApi").then(({ crmApi }) => {
+      crmApi.updateLeadStage(leadId, newStage, lostReason).catch(() => {});
+    });
 
     return { previousStage };
   },
@@ -428,6 +446,22 @@ export const crmActions = {
       activities: [quoteActivity, ...state.activities],
     };
     notify();
+
+    import("@/services/api/crmApi").then(({ crmApi }) => {
+      crmApi
+        .createQuote({
+          leadId: payload.leadId,
+          validDays: 14,
+          notes: payload.terms,
+          lines: payload.items.map((i) => ({
+            description: i.description,
+            quantity: i.qty,
+            unitPrice: i.rate,
+            taxPercent: i.gstPercent,
+          })),
+        })
+        .catch(() => {});
+    });
 
     toast({
       type: "success",

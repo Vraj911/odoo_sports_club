@@ -234,6 +234,21 @@ export default function RegisterMember() {
 
     setCreatedMember(newMember);
     setActiveStep(3); // Go to Step 4: Done
+
+    // Persist to backend
+    import("@/services/api/memberApi").then(({ memberApi }) => {
+      memberApi
+        .registerMember({
+          fullName: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          dateOfBirth: dob,
+          emergencyContact: emergencyName.trim(),
+          emergencyPhone: emergencyPhone.trim(),
+          notes: `Tier: ${selectedTier}, Address: ${address.trim()}`,
+        })
+        .catch(() => {});
+    });
   };
 
   const steps = [

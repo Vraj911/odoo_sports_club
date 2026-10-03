@@ -13,6 +13,8 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,6 +55,7 @@ public class SocialSession extends BaseEntity {
     @Column(name = "template_id")
     private UUID templateId;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "price_by_tier")
     private String priceByTier;
 

@@ -54,8 +54,42 @@ function subscribe(listener: () => void) {
   };
 }
 
+import { memberApi } from "@/services/api/memberApi";
+import { financeApi } from "@/services/api/financeApi";
+
+let isMemberStoreInitialized = false;
+
 export const memberStore = {
   getState: () => state,
+
+  init: async () => {
+    if (isMemberStoreInitialized) return;
+    try {
+      const members = await memberApi.listMembers();
+      if (members && members.length > 0) {
+        const primary = members[0];
+        if (primary) {
+          state = {
+            ...state,
+            profile: {
+              ...state.profile,
+              id: primary.id,
+              name: primary.fullName,
+              email: primary.email,
+              phone: primary.phone,
+              tier: (primary.tier as MemberProfile["tier"]) || "Gold",
+              status: (primary.status as MemberProfile["status"]) || "ACTIVE",
+              memberId: primary.memberNumber || state.profile.memberId,
+            },
+          };
+          notify();
+        }
+      }
+      isMemberStoreInitialized = true;
+    } catch {
+      isMemberStoreInitialized = true;
+    }
+  },
 
   switchMember: (key: string) => {
     const target = SAMPLE_MEMBERS[key];
@@ -126,6 +160,12 @@ export const memberStore = {
     };
 
     notify();
+
+    // Sync renewal with backend API
+    if (state.profile.id) {
+      memberApi.renewMembership(state.profile.id).catch(() => {});
+    }
+
     return { success: true, newValidTill: newEnd, invoiceId: newInvoiceId };
   },
 

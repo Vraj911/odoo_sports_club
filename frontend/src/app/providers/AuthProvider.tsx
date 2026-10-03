@@ -6,13 +6,13 @@ interface AuthContextValue {
   user: AuthUser | null;
   /** False until sessionStorage has been read on the client. */
   ready: boolean;
-  loginAs: (role: PrimaryRole, groups?: PermissionGroup[], name?: string) => void;
+  loginAs: (role: PrimaryRole, groups?: PermissionGroup[], name?: string, id?: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** STUB auth: role held in React state, persisted to sessionStorage. No API. */
+/** Auth state held in React state, persisted to sessionStorage and sent as actor header to backend. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
@@ -32,8 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
-  const loginAs = useCallback((role: PrimaryRole, groups: PermissionGroup[] = [], name?: string) => {
-    const next: AuthUser = { name: name || `Demo ${ROLE_LABELS[role]}`, role, groups };
+  const loginAs = useCallback((role: PrimaryRole, groups: PermissionGroup[] = [], name?: string, id?: string) => {
+    const next: AuthUser = { id, name: name || `Demo ${ROLE_LABELS[role]}`, role, groups };
     sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
     setUser(next);
   }, []);

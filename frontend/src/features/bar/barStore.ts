@@ -774,10 +774,16 @@ export const barActions = {
       };
       state = { ...state, activeShift: closedShift };
       notify();
+
+      import("@/services/api/barApi").then(({ barApi }) => {
+        barApi.closeShift({ shiftId: state.activeShift.shiftId, countedCash: state.activeShift.countedCash || 0 }).catch(() => {});
+      });
+
       return { success: true, message: `Clocked out ${state.activeShift.staffName}.` };
     } else {
+      const shiftId = `SHF-${Date.now()}`;
       const openedShift: ShiftState = {
-        shiftId: `SHF-${Date.now()}`,
+        shiftId,
         staffName: "Aarav Mehta",
         staffId: "STF-02",
         clockInTime: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
@@ -795,6 +801,11 @@ export const barActions = {
       };
       state = { ...state, activeShift: openedShift };
       notify();
+
+      import("@/services/api/barApi").then(({ barApi }) => {
+        barApi.openShift({ openingFloat: 5000, scope: "BAR" }).catch(() => {});
+      });
+
       return { success: true, message: "Clocked in successfully as Aarav Mehta." };
     }
   },
@@ -835,6 +846,10 @@ export const barActions = {
 
     state = { ...state, activeShift: updatedShift };
     notify();
+
+    import("@/services/api/barApi").then(({ barApi }) => {
+      barApi.closeShift({ shiftId: state.activeShift.shiftId, countedCash }).catch(() => {});
+    });
 
     return { variance };
   },

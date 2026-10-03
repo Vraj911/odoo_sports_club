@@ -992,6 +992,25 @@ export const shopStore = {
       ),
     };
     notify();
+
+    // Sync POS checkout with backend
+    import("@/services/api/shopApi").then(({ shopApi }) => {
+      shopApi
+        .posCheckout({
+          memberId: active.customer.memberId,
+          customerName: active.customer.name,
+          customerPhone: active.customer.phone,
+          items: active.items.map((i) => ({
+            variantId: i.variantId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+          })),
+          paymentMethod: params.paymentMethod,
+          tenderedCash: params.tenderedCash,
+        })
+        .catch(() => {});
+    });
+
     return receipt;
   },
 

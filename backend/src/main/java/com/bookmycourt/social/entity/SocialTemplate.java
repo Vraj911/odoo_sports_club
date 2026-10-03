@@ -10,6 +10,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalTime;
 import java.util.UUID;
@@ -25,7 +27,7 @@ public class SocialTemplate extends BaseEntity {
     private Court court;
 
     @Column(nullable = false)
-    private Integer weekday; // 1 = Monday .. 7 = Sunday
+    private Short weekday; // 1 = Monday .. 7 = Sunday
 
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
@@ -36,6 +38,7 @@ public class SocialTemplate extends BaseEntity {
     @Column(nullable = false)
     private Integer capacity = 8;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "price_by_tier")
     private String priceByTier;
 

@@ -16,6 +16,8 @@ import {
   TIME_SLOTS,
 } from "./sampleData";
 
+import { bookingApi } from "@/services/api/bookingApi";
+
 // ── Format date to YYYY-MM-DD ──
 export function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -30,31 +32,48 @@ export function useBookings(currentTier: MemberTier = "Gold") {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Simulated error state → auto-clear after 1.5s
-  const simulateLoad = useCallback(() => {
+  // Load from backend or fallback to sample generator
+  const loadBookings = useCallback(async (date: string, curSport: Sport) => {
     setLoading(true);
     setError(null);
-    setTimeout(() => {
-      // 10% chance of brief error
-      if (Math.random() < 0.1) {
-        setError("Brief network hiccup — retrying...");
-        setTimeout(() => {
-          setError(null);
-          setLoading(false);
-        }, 1200);
-        return;
-      }
+    try {
+      const backendBookings = await bookingApi.listBookings({ date });
+      const mapped = (backendBookings || []).map((b) => ({
+        id: b.id,
+        courtId: b.courtId,
+        courtName: b.courtName,
+        sport: (b.sport as Sport) || curSport,
+        date: b.date,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        status: (b.status as Booking["status"]) || "CONFIRMED",
+        price: b.price || 0,
+        paymentStatus: b.paymentStatus || "PAID",
+        memberId: b.memberId || "SELF",
+        memberName: b.memberName || "Member",
+        memberTier: "Gold" as MemberTier,
+        guestCount: 0,
+        createdAt: Date.now(),
+      }));
+      const sampleBookings = generateSampleBookings(date);
+      const merged = [...sampleBookings, ...mapped];
+      setBookings(merged);
+      const newGrid = generateInitialGrid(date, curSport, merged);
+      setGrid(newGrid);
       setLoading(false);
-    }, 600);
-  }, []);
+    } catch {
+      // Fallback to sample bookings
+      const sampleBookings = generateSampleBookings(date);
+      const merged = [...sampleBookings, ...bookings.filter((b) => b.date === date)];
+      const newGrid = generateInitialGrid(date, curSport, merged);
+      setGrid(newGrid);
+      setLoading(false);
+    }
+  }, [bookings]);
 
   // Rebuild grid when sport or date changes
   useEffect(() => {
-    simulateLoad();
-    const sampleBookings = generateSampleBookings(selectedDate);
-    const merged = [...sampleBookings, ...bookings.filter((b) => b.date === selectedDate)];
-    const newGrid = generateInitialGrid(selectedDate, sport, merged);
-    setGrid(newGrid);
+    loadBookings(selectedDate, sport);
   }, [sport, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Today's bookings count (confirmed + pending, not cancelled)
@@ -159,6 +178,19 @@ export function useBookings(currentTier: MemberTier = "Gold") {
         )
       );
 
+      // Persist to backend
+      bookingApi
+        .createBooking({
+          courtId,
+          date,
+          startTime,
+          endTime,
+          sport: court.sport,
+          memberTier: currentTier,
+          price: priceQuote.youPay,
+        })
+        .catch(() => {});
+
       return { success: true, booking };
     },
     [bookings, currentTier]
@@ -181,8 +213,15 @@ export function useBookings(currentTier: MemberTier = "Gold") {
           )
         )
       );
+
+      bookingApi
+        .confirmBooking({
+          holdToken: bookingId,
+          memberTier: currentTier,
+        })
+        .catch(() => {});
     },
-    []
+    [currentTier]
   );
 
   // Expire booking
@@ -223,6 +262,8 @@ export function useBookings(currentTier: MemberTier = "Gold") {
           )
         )
       );
+
+      bookingApi.cancelBooking(bookingId, "Cancelled from web").catch(() => {});
     },
     []
   );
