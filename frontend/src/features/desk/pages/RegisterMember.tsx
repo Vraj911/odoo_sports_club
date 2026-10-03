@@ -90,10 +90,11 @@ export default function RegisterMember() {
   const navigate = useGo();
   const [activeStep, setActiveStep] = useState(0);
 
-  // Form Fields - Step 1: Details
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  // Form Fields - Step 1: Details (pre-fillable from CRM Lead conversion)
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const [name, setName] = useState(() => searchParams?.get("name") || "");
+  const [phone, setPhone] = useState(() => searchParams?.get("phone") || "");
+  const [email, setEmail] = useState(() => searchParams?.get("email") || "");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState<"M" | "F" | "Other" | "">("M");
   const [address, setAddress] = useState("");

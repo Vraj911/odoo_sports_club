@@ -47,15 +47,15 @@ const c = (
 export const routeConfig: RouteMeta[] = [
   // ─── PUBLIC (no login) ──────────────────────────────────────────────
   { ...r("/", "Home", "public", PUBLIC, 2, ["WEB-01"], Home), load: () => import("@/features/website/pages/Home") },
-  r("/facilities", "Facilities", "public", PUBLIC, 8, ["WEB-01"], Building2),
-  r("/plans", "Membership Plans", "public", PUBLIC, 8, ["WEB-02"], BadgeCheck),
-  r("/availability", "This Week", "public", PUBLIC, 8, ["WEB-03"], CalendarDays),
+  { ...r("/facilities", "Facilities", "public", PUBLIC, 8, ["WEB-01"], Building2), load: () => import("@/features/website/pages/FacilitiesPage") },
+  { ...r("/plans", "Membership Plans", "public", PUBLIC, 8, ["WEB-02"], BadgeCheck), load: () => import("@/features/website/pages/PlansPage") },
+  { ...r("/availability", "This Week", "public", PUBLIC, 8, ["WEB-03"], CalendarDays), load: () => import("@/features/website/pages/AvailabilityPage") },
   { ...r("/shop", "Shop", "public", PUBLIC, 6, ["WEB-04"], ShoppingBag), load: () => import("@/features/shop/pages/ShopCatalogPage") },
   { ...r("/shop/:slug", "Product", "public", PUBLIC, 6, [], Package), load: () => import("@/features/shop/pages/ProductDetailPage") },
   { ...r("/cart", "Cart", "public", PUBLIC, 6, [], ShoppingCart), load: () => import("@/features/shop/pages/CartPage") },
   { ...r("/checkout", "Checkout", "public", PUBLIC, 6, [], CreditCard), load: () => import("@/features/shop/pages/CheckoutPage") },
-  r("/trial", "Book a Trial", "public", PUBLIC, 8, ["WEB-05"], Sparkles),
-  r("/contact", "Contact", "public", PUBLIC, 8, ["WEB-07"], Mail),
+  { ...r("/trial", "Book a Trial", "public", PUBLIC, 8, ["WEB-05"], Sparkles), load: () => import("@/features/website/pages/TrialBookingPage") },
+  { ...r("/contact", "Contact", "public", PUBLIC, 8, ["WEB-07"], Mail), load: () => import("@/features/website/pages/ContactPage") },
   r("/share/:token", "Shared Report", "public", PUBLIC, 11, ["RPT-10"], Share2),
 
   // ─── AUTH ───────────────────────────────────────────────────────────
@@ -102,32 +102,32 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/desk/payments", "Payments", DESK, 5, "desk", Wallet), load: () => import("@/features/desk/pages/DeskPayments") },
 
   // ─── SHOP CONSOLE ───────────────────────────────────────────────────
-  c("/shop-console", "Point of Sale", SHOP, 6, "shop", Store),
-  c("/shop-console/quick", "Quick Sale", SHOP, 6, "shop", Zap),
-  c("/shop-console/orders", "Orders", SHOP, 6, "shop", Package),
-  c("/shop-console/inventory", "Inventory", SHOP, 6, "shop", Boxes),
-  c("/shop-console/restock", "Restock", SHOP, 6, "shop", PackagePlus),
-  c("/shop-console/products", "Products", SHOP, 6, "shop", Tags),
-  c("/shop-console/purchase-orders", "Purchase Orders", SHOP, 6, "shop", Truck),
-  c("/shop-console/returns", "Returns", SHOP, 6, "shop", Undo2),
-  c("/shop-console/restring", "Restringing", SHOP, 6, "shop", Wrench),
-  c("/shop-console/reports", "Shop Reports", SHOP, 6, "shop", BarChart3),
+  { ...c("/shop-console", "Point of Sale", SHOP, 6, "shop", Store), load: () => import("@/features/shop/pages/ShopPOSPage") },
+  { ...c("/shop-console/quick", "Quick Sale", SHOP, 6, "shop", Zap), load: () => import("@/features/shop/pages/ShopQuickSalePage") },
+  { ...c("/shop-console/orders", "Orders", SHOP, 6, "shop", Package), load: () => import("@/features/shop/pages/ShopOrdersPage") },
+  { ...c("/shop-console/inventory", "Inventory", SHOP, 6, "shop", Boxes), load: () => import("@/features/shop/pages/ShopInventoryPage") },
+  { ...c("/shop-console/restock", "Restock", SHOP, 6, "shop", PackagePlus), load: () => import("@/features/shop/pages/ShopRestockPage") },
+  { ...c("/shop-console/products", "Products", SHOP, 6, "shop", Tags), load: () => import("@/features/shop/pages/ShopProductsPage") },
+  { ...c("/shop-console/purchase-orders", "Purchase Orders", SHOP, 6, "shop", Truck), load: () => import("@/features/shop/pages/ShopPurchaseOrdersPage") },
+  { ...c("/shop-console/returns", "Returns", SHOP, 6, "shop", Undo2), load: () => import("@/features/shop/pages/ShopReturnsPage") },
+  { ...c("/shop-console/restring", "Restringing", SHOP, 6, "shop", Wrench), load: () => import("@/features/shop/pages/ShopRestringPage") },
+  { ...c("/shop-console/reports", "Shop Reports", SHOP, 6, "shop", BarChart3), load: () => import("@/features/shop/pages/ShopReportsPage") },
 
   // ─── BAR + KDS ──────────────────────────────────────────────────────
-  c("/bar", "Bar Floor", BAR, 7, "bar", Wine),
-  c("/bar/table/:id", "Table", BAR, 7, "bar", Table2),
-  c("/bar/tabs", "Open Tabs", BAR, 7, "bar", Beer),
-  c("/bar/bill/:id", "Bill", BAR, 7, "bar", Receipt),
-  c("/bar/shift", "Shift", BAR, 7, "bar", Clock),
-  c("/bar/closing", "Closing", ADM, 7, "bar", Lock), // ADMIN only
-  c("/kds", "Kitchen Display", BAR, 7, "bar", ChefHat),
+  { ...c("/bar", "Bar Floor", BAR, 7, "bar", Wine), load: () => import("@/features/bar/pages/BarFloorPage") },
+  { ...c("/bar/table/:id", "Table", BAR, 7, "bar", Table2), load: () => import("@/features/bar/pages/BarTablePage") },
+  { ...c("/bar/tabs", "Open Tabs", BAR, 7, "bar", Beer), load: () => import("@/features/bar/pages/BarTabsPage") },
+  { ...c("/bar/bill/:id", "Bill", BAR, 7, "bar", Receipt), load: () => import("@/features/bar/pages/BarBillPage") },
+  { ...c("/bar/shift", "Shift", BAR, 7, "bar", Clock), load: () => import("@/features/bar/pages/BarShiftPage") },
+  { ...c("/bar/closing", "Closing", ADM, 7, "bar", Lock), load: () => import("@/features/bar/pages/BarClosingPage") }, // ADMIN only
+  { ...c("/kds", "Kitchen Display", BAR, 7, "bar", ChefHat), load: () => import("@/features/bar/pages/KDSPage") },
 
   // ─── CRM ────────────────────────────────────────────────────────────
-  c("/crm", "CRM Overview", CRM_ACCESS, 8, "crm", Contact),
-  c("/crm/leads", "Leads", LEADS_ACCESS, 8, "crm", Target), // FRONT_DESK or CRM or ADMIN
-  c("/crm/leads/:id", "Lead Detail", LEADS_ACCESS, 8, "crm", Target), // FRONT_DESK or CRM or ADMIN
-  c("/crm/leads/:id/quote", "Quote", CRM_ACCESS, 8, "crm", FileSignature),
-  c("/crm/campaigns", "Campaigns", CRM_ACCESS, 8, "crm", Megaphone),
+  { ...c("/crm", "CRM Overview", CRM_ACCESS, 8, "crm", Contact), load: () => import("@/features/crm/pages/CrmDashboardPage") },
+  { ...c("/crm/leads", "Leads", LEADS_ACCESS, 8, "crm", Target), load: () => import("@/features/crm/pages/CrmLeadsPage") },
+  { ...c("/crm/leads/:id", "Lead Detail", LEADS_ACCESS, 8, "crm", Target), load: () => import("@/features/crm/pages/CrmLeadDetailPage") },
+  { ...c("/crm/leads/:id/quote", "Quote", CRM_ACCESS, 8, "crm", FileSignature), load: () => import("@/features/crm/pages/CrmQuoteBuilderPage") },
+  { ...c("/crm/campaigns", "Campaigns", CRM_ACCESS, 8, "crm", Megaphone), load: () => import("@/features/crm/pages/CrmCampaignsPage") },
 
   // ─── FINANCE ────────────────────────────────────────────────────────
   c("/finance", "Finance Overview", FIN, 9, "finance", Landmark),
