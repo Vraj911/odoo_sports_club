@@ -1,6 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { DevRoleSwitcher } from "@/components/shared/DevRoleSwitcher";
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
+import { SessionExpiredModal } from "@/components/shared/SessionExpiredModal";
 import {
   Outlet,
   Link,
@@ -117,8 +119,10 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <AppProviders queryClient={queryClient}>
+      <OfflineBanner />
       <Outlet />
       <DevRoleSwitcher />
+      <SessionExpiredModal />
     </AppProviders>
   );
 }
