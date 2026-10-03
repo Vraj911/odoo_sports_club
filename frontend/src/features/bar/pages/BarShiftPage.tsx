@@ -137,6 +137,17 @@ export function BarShiftPage() {
                   {activeShift.isOpen ? "Clock Out Staff" : "Clock In Shift"}
                 </Button>
               </div>
+
+              <div className="pt-1">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => go("/my/clock")}
+                  className="w-full text-xs text-volt-400 border-volt-400/30 hover:bg-volt-400/10"
+                >
+                  Open Time Clock & Biometric Terminal
+                </Button>
+              </div>
             </div>
 
             {/* Shift Sales Summary Card */}

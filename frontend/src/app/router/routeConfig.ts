@@ -85,11 +85,11 @@ export const routeConfig: RouteMeta[] = [
 
   // ─── STAFF HUB & MY WORK ────────────────────────────────────────────
   { ...c("/staff", "Staff Hub", ALL_STAFF, 5, "self", LayoutDashboard), load: () => import("@/features/staff/pages/StaffHub") },
-  c("/my", "My Work", ALL_STAFF, 10, "self", CircleUser),
-  c("/my/roster", "My Roster", ALL_STAFF, 10, "self", CalendarClock),
-  c("/my/clock", "Time Clock", ALL_STAFF, 10, "self", Fingerprint),
-  c("/my/leave", "My Leave", ALL_STAFF, 10, "self", Plane),
-  c("/my/payslips", "My Payslips", ALL_STAFF, 10, "self", Banknote),
+  { ...c("/my", "My Work", ALL_STAFF, 10, "self", CircleUser), load: () => import("@/features/hr/pages/MyWorkPage") },
+  { ...c("/my/roster", "My Roster", ALL_STAFF, 10, "self", CalendarClock), load: () => import("@/features/hr/pages/MyRosterPage") },
+  { ...c("/my/clock", "Time Clock", ALL_STAFF, 10, "self", Fingerprint), load: () => import("@/features/hr/pages/MyClockPage") },
+  { ...c("/my/leave", "My Leave", ALL_STAFF, 10, "self", Plane), load: () => import("@/features/hr/pages/MyLeavePage") },
+  { ...c("/my/payslips", "My Payslips", ALL_STAFF, 10, "self", Banknote), load: () => import("@/features/hr/pages/MyPayslipsPage") },
 
   // ─── FRONT DESK ─────────────────────────────────────────────────────
   { ...c("/desk", "Desk Overview", DESK, 5, "desk", ClipboardList), load: () => import("@/features/desk/pages/DeskOverview") },
@@ -144,15 +144,15 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/finance/periods", "Periods", FIN, 9, "finance", CalendarRange), load: () => import("@/features/finance/pages/FinancePeriodsPage") },
 
   // ─── HR (ADMIN ONLY) ────────────────────────────────────────────────
-  c("/hr", "HR Overview", ADM, 10, "hr", UserCog),
-  c("/hr/employees", "Employees", ADM, 10, "hr", Users),
-  c("/hr/employees/:id", "Employee", ADM, 10, "hr", User),
-  c("/hr/roster", "Roster", ADM, 10, "hr", CalendarClock),
-  c("/hr/attendance", "Attendance", ADM, 10, "hr", Fingerprint),
-  c("/hr/leave", "Leave", ADM, 10, "hr", Plane),
-  c("/hr/payroll", "Payroll", ADM, 10, "hr", Banknote),
-  c("/hr/payroll/:runId", "Payroll Run", ADM, 10, "hr", Banknote),
-  c("/hr/holidays", "Holidays", ADM, 10, "hr", PartyPopper),
+  { ...c("/hr", "HR Overview", ADM, 10, "hr", UserCog), load: () => import("@/features/hr/pages/HrOverviewPage") },
+  { ...c("/hr/employees", "Employees", ADM, 10, "hr", Users), load: () => import("@/features/hr/pages/HrEmployeesPage") },
+  { ...c("/hr/employees/:id", "Employee", ADM, 10, "hr", User), load: () => import("@/features/hr/pages/HrEmployeeDetailPage") },
+  { ...c("/hr/roster", "Roster", ADM, 10, "hr", CalendarClock), load: () => import("@/features/hr/pages/HrRosterPage") },
+  { ...c("/hr/attendance", "Attendance", ADM, 10, "hr", Fingerprint), load: () => import("@/features/hr/pages/HrAttendancePage") },
+  { ...c("/hr/leave", "Leave", ADM, 10, "hr", Plane), load: () => import("@/features/hr/pages/HrLeavePage") },
+  { ...c("/hr/payroll", "Payroll", ADM, 10, "hr", Banknote), load: () => import("@/features/hr/pages/HrPayrollPage") },
+  { ...c("/hr/payroll/:runId", "Payroll Run", ADM, 10, "hr", Banknote), load: () => import("@/features/hr/pages/HrPayrollRunPage") },
+  { ...c("/hr/holidays", "Holidays", ADM, 10, "hr", PartyPopper), load: () => import("@/features/hr/pages/HrHolidaysPage") },
 
   // ─── OWNER (ADMIN ONLY) ─────────────────────────────────────────────
   c("/owner", "Owner Dashboard", ADM, 11, "owner", Crown),
