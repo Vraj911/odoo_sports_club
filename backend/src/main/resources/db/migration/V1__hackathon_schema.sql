@@ -1,6 +1,5 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 SET TIME ZONE 'UTC';
 
@@ -190,7 +189,7 @@ CREATE TABLE booking (
     CONSTRAINT booking_time_chk CHECK (end_time > start_time),
     CONSTRAINT booking_duration_chk CHECK (end_time - start_time = INTERVAL '60 minutes'),
     CONSTRAINT booking_status_chk CHECK (
-        status IN ('PENDING','CONFIRMED','CHECKED_IN','COMPLETED','CANCELLED','NO_SHOW')
+        status IN ('PENDING','CONFIRMED','CHECKED_IN','COMPLETED','CANCELLED','NO_SHOW','EXPIRED')
     ),
     CONSTRAINT booking_price_chk CHECK (price_charged >= 0),
     CONSTRAINT booking_payment_chk CHECK (
@@ -199,6 +198,8 @@ CREATE TABLE booking (
 );
 CREATE INDEX booking_member_date_idx ON booking(member_id, start_time DESC);
 CREATE INDEX booking_court_time_idx ON booking(court_id, start_time);
+CREATE INDEX booking_pending_expiry_idx ON booking(expires_at)
+    WHERE status = 'PENDING' AND expires_at IS NOT NULL;
 
 CREATE TABLE social_session (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -286,16 +287,7 @@ CREATE TABLE occupancy (
     )
 );
 
-ALTER TABLE occupancy
-    ADD CONSTRAINT occupancy_no_overlap_excl
-    EXCLUDE USING GIST (
-        court_id WITH =,
-        occupied_period WITH &&
-    )
-    WHERE (status = 'ACTIVE');
-
--- Application should create/update occupancy in the same transaction as booking.
--- This database constraint is the final protection against double booking.
+CREATE INDEX occupancy_court_status_idx ON occupancy(court_id, status);
 
 -- ============================================================================
 -- 3. SHOP / INVENTORY
@@ -969,7 +961,7 @@ CREATE INDEX shop_order_status_idx ON shop_order(status, created_at DESC);
 CREATE INDEX bar_order_status_idx ON bar_order(status, created_at DESC);
 
 COMMENT ON TABLE occupancy IS
-'Database-level court occupancy ledger. The GiST exclusion constraint prevents overlapping active occupancy for the same court.';
+'Optional occupancy ledger for bookings, social sessions, and maintenance windows. Overlap prevention is an application concern.';
 
 COMMENT ON TABLE product_variant IS
 'Product variant plus current inventory state; stock changes must be made through stock_movement.';
