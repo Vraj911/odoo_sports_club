@@ -119,9 +119,10 @@ export default function AdminAuditLogPage() {
 
   const columns: Column<AuditLogEntry>[] = [
     {
+      key: "timestamp",
       id: "timestamp",
       header: "Timestamp",
-      cell: (row) => {
+      render: (row) => {
         const d = new Date(row.timestamp);
         return (
           <div className="flex flex-col">
@@ -147,9 +148,10 @@ export default function AdminAuditLogPage() {
       },
     },
     {
+      key: "user",
       id: "user",
       header: "Performed By",
-      cell: (row) => (
+      render: (row) => (
         <div className="flex items-center gap-2.5">
           <div className="size-8 rounded-full bg-court-700 border border-white/10 flex items-center justify-center text-xs font-semibold text-volt-400">
             {row.userName.split(" ").map((n) => n[0]).join("").slice(0, 2)}
@@ -171,9 +173,10 @@ export default function AdminAuditLogPage() {
       ),
     },
     {
+      key: "action",
       id: "action",
       header: "Action",
-      cell: (row) => (
+      render: (row) => (
         <StatusPill
           label={formatAction(row.action)}
           tone={getActionTone(row.action)}
@@ -182,9 +185,10 @@ export default function AdminAuditLogPage() {
       ),
     },
     {
+      key: "entity",
       id: "entity",
       header: "Target Entity",
-      cell: (row) => (
+      render: (row) => (
         <div>
           <div className="text-white text-xs font-medium">{row.entity}</div>
           <div className="text-white/60 font-mono text-[11px]">{row.entityId}</div>
@@ -192,9 +196,10 @@ export default function AdminAuditLogPage() {
       ),
     },
     {
+      key: "reason",
       id: "reason",
       header: "Mandatory Reason",
-      cell: (row) => (
+      render: (row) => (
         <div className="max-w-[280px]">
           <p className="text-white/80 text-xs italic line-clamp-2" title={row.reason}>
             "{row.reason}"
@@ -203,10 +208,11 @@ export default function AdminAuditLogPage() {
       ),
     },
     {
+      key: "inspection",
       id: "inspection",
       header: "Governance & Diff",
       align: "right",
-      cell: (row) => (
+      render: (row) => (
         <div className="flex items-center justify-end gap-2">
           <div className="flex items-center gap-1 text-[11px] text-white/40 bg-white/5 px-2 py-1 rounded-md border border-white/5" title="Append-only immutable record. Edits and deletes are strictly prohibited by protocol.">
             <Lock className="size-3 text-volt-400" />

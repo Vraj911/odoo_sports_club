@@ -5,9 +5,11 @@ import { SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export interface Column<T> {
-  key: string;
+  key?: string;
+  id?: string;
   header: ReactNode;
-  render: (item: T, index: number) => ReactNode;
+  render?: (item: T, index: number) => ReactNode;
+  cell?: (item: T, index: number) => ReactNode;
   align?: "left" | "center" | "right";
   className?: string;
 }
@@ -58,9 +60,9 @@ export function Table<T>({
           <table className="w-full text-left text-sm border-collapse">
             <thead className="sticky top-0 z-10 bg-court-700 text-chalk/80">
               <tr>
-                {columns.map((col) => (
+                {columns.map((col, cIdx) => (
                   <th
-                    key={col.key}
+                    key={col.key || col.id || String(cIdx)}
                     className={cn(
                       "px-4 py-3.5 text-[12px] font-medium uppercase tracking-[0.04em] whitespace-nowrap border-b border-chalk/14",
                       col.align === "center" && "text-center",
@@ -78,7 +80,7 @@ export function Table<T>({
                 Array.from({ length: 5 }).map((_, rIdx) => (
                   <tr key={rIdx} className={cn("bg-court-500", rowHeightClass)}>
                     {columns.map((col, cIdx) => (
-                      <td key={cIdx} className="px-4">
+                      <td key={col.key || col.id || String(cIdx)} className="px-4">
                         <Skeleton className="h-4 w-3/4" />
                       </td>
                     ))}
@@ -103,20 +105,26 @@ export function Table<T>({
                       idx % 2 === 1 ? "bg-court-600/40" : "bg-court-500"
                     )}
                   >
-                    {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        className={cn(
-                          "px-4 text-chalk transition-all",
-                          rowHeightClass,
-                          col.align === "center" && "text-center",
-                          col.align === "right" && "text-right",
-                          col.className
-                        )}
-                      >
-                        {col.render(item, idx)}
-                      </td>
-                    ))}
+                    {columns.map((col, cIdx) => {
+                      const colKey = col.key || col.id || String(cIdx);
+                      const renderFn = col.render || col.cell;
+                      return (
+                        <td
+                          key={colKey}
+                          className={cn(
+                            "px-4 text-chalk transition-all",
+                            rowHeightClass,
+                            col.align === "center" && "text-center",
+                            col.align === "right" && "text-right",
+                            col.className
+                          )}
+                        >
+                          {renderFn
+                            ? renderFn(item, idx)
+                            : String((item as Record<string, unknown>)[colKey] ?? "")}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))
               )}

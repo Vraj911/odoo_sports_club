@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { ChevronDown, Menu, X, Building2, Trophy, Sparkles, ShoppingBag, BadgeCheck, Utensils, Wrench } from "lucide-react";
 import { AppLink } from "@/app/router/links";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/Button";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function PublicNavbar({ isInsideHero = false }: { isInsideHero?: boolean }) {
+  const { user } = useAuth();
+  const isMember = user?.role === "MEMBER";
+  const bookTarget = isMember ? "/app/book" : "/availability";
   const [facilitiesOpen, setFacilitiesOpen] = useState(false);
   const [plansShopOpen, setPlansShopOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -195,13 +199,22 @@ export function PublicNavbar({ isInsideHero = false }: { isInsideHero?: boolean 
 
       {/* Right: Actions */}
       <div className="flex items-center gap-4">
-        <AppLink
-          to="/login"
-          className="text-sm font-medium text-chalk hover:text-volt-400 transition-colors hidden sm:inline"
-        >
-          Login
-        </AppLink>
-        <AppLink to="/app/book">
+        {user ? (
+          <AppLink
+            to={user.role === "ADMIN" ? "/owner" : user.role === "STAFF" ? "/desk" : "/app"}
+            className="text-sm font-medium text-chalk hover:text-volt-400 transition-colors hidden sm:inline"
+          >
+            Dashboard
+          </AppLink>
+        ) : (
+          <AppLink
+            to="/login"
+            className="text-sm font-medium text-chalk hover:text-volt-400 transition-colors hidden sm:inline"
+          >
+            Login
+          </AppLink>
+        )}
+        <AppLink to={bookTarget}>
           <Button size="sm" variant="primary" className="hidden sm:inline-flex">
             Book a Court
           </Button>
@@ -240,12 +253,23 @@ export function PublicNavbar({ isInsideHero = false }: { isInsideHero?: boolean 
               Contact Us
             </AppLink>
             <div className="pt-4 border-t border-chalk/14 flex flex-col gap-3">
-              <AppLink to="/login" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="secondary" className="w-full">
-                  Login
-                </Button>
-              </AppLink>
-              <AppLink to="/app/book" onClick={() => setMobileMenuOpen(false)}>
+              {user ? (
+                <AppLink
+                  to={user.role === "ADMIN" ? "/owner" : user.role === "STAFF" ? "/desk" : "/app"}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Button variant="secondary" className="w-full">
+                    Dashboard
+                  </Button>
+                </AppLink>
+              ) : (
+                <AppLink to="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="secondary" className="w-full">
+                    Login
+                  </Button>
+                </AppLink>
+              )}
+              <AppLink to={bookTarget} onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="primary" className="w-full">
                   Book a Court
                 </Button>

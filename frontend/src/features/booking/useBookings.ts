@@ -275,6 +275,11 @@ export function useBookings(currentTier: MemberTier = "Gold") {
     [grid, selectedDate, sport]
   );
 
+  // Retry / reload bookings
+  const simulateLoad = useCallback(() => {
+    loadBookings(selectedDate, sport);
+  }, [loadBookings, selectedDate, sport]);
+
   // Simulated live update: randomly book a free slot every ~8s
   useEffect(() => {
     const interval = setInterval(() => {

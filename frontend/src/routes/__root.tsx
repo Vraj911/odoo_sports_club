@@ -48,13 +48,25 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+      <div className="max-w-xl text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
+        {error != null && (
+          <div className="mt-4 p-4 rounded-lg bg-red-950/80 border border-red-500/40 text-red-200 text-left text-xs font-mono overflow-auto max-h-80">
+            <p className="font-bold text-red-400 mb-1">
+              {error instanceof Error ? error.message : String(error)}
+            </p>
+            {error instanceof Error && error.stack && (
+              <pre className="whitespace-pre-wrap text-[11px] text-red-300/80 mt-2">
+                {error.stack}
+              </pre>
+            )}
+          </div>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {

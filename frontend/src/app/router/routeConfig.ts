@@ -198,7 +198,8 @@ const compiled = routeConfig
   // static routes win over parameterised ones
   .sort((a, b) => a.keys.length - b.keys.length);
 
-export function matchRoute(pathname: string): { route: RouteMeta; params: Record<string, string> } | null {
+export function matchRoute(rawPathname: string): { route: RouteMeta; params: Record<string, string> } | null {
+  const pathname = (rawPathname || "/").split("?")[0]?.split("#")[0] || "/";
   for (const { route, keys, regex } of compiled) {
     const m = regex.exec(pathname);
     if (m) {

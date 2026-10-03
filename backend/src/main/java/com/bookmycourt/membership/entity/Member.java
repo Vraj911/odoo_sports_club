@@ -70,12 +70,4 @@ public class Member extends BaseEntity {
             qrToken = UUID.randomUUID();
         }
     }
-
-    /**
-     * Convenience accessor used by services that compare actor.userId() against
-     * the linked user record. Returns null when no user is attached.
-     */
-    public UUID getUserId() {
-        return user != null ? user.getId() : null;
-    }
 }

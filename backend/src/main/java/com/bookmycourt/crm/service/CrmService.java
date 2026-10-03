@@ -25,6 +25,7 @@ import com.bookmycourt.membership.entity.AppUser;
 import com.bookmycourt.membership.entity.Member;
 import com.bookmycourt.membership.repository.AppUserRepository;
 import com.bookmycourt.membership.repository.MemberRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,7 @@ public class CrmService {
     private final QuoteRepository quotes;
     private final Clock clock;
 
+    @Autowired
     public CrmService(
             LeadRepository leads,
             FollowUpRepository followUps,

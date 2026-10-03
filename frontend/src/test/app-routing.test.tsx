@@ -37,4 +37,41 @@ describe("App routing", () => {
 
     await waitFor(() => expect(container.firstChild).not.toBeNull());
   });
+
+  it("renders /availability route", async () => {
+    const { container } = await renderAt("/availability");
+    await waitFor(() => expect(container.firstChild).not.toBeNull());
+  });
+
+  it("handles /app/book navigation without crashing", async () => {
+    const { container } = await renderAt("/app/book");
+    await waitFor(() => expect(container.firstChild).not.toBeNull());
+  });
+
+  it("renders /app/book when logged in as MEMBER", async () => {
+    sessionStorage.setItem(
+      "ccms_auth_user",
+      JSON.stringify({ id: "m-1", name: "Rahul Sharma", role: "MEMBER", groups: [] })
+    );
+    const { container } = await renderAt("/app/book");
+    await waitFor(() => expect(container.firstChild).not.toBeNull());
+  });
+
+  it("renders /crm/leads when logged in as STAFF with CRM", async () => {
+    sessionStorage.setItem(
+      "ccms_auth_user",
+      JSON.stringify({ id: "s-1", name: "Staff Member", role: "STAFF", groups: ["CRM"] })
+    );
+    const { container } = await renderAt("/crm/leads");
+    await waitFor(() => expect(container.firstChild).not.toBeNull());
+  });
+
+  it("renders /admin/audit-log when logged in as ADMIN", async () => {
+    sessionStorage.setItem(
+      "ccms_auth_user",
+      JSON.stringify({ id: "a-1", name: "Admin User", role: "ADMIN", groups: [] })
+    );
+    const { container } = await renderAt("/admin/audit-log");
+    await waitFor(() => expect(container.firstChild).not.toBeNull());
+  });
 });
