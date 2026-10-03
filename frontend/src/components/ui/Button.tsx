@@ -7,15 +7,20 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-volt-400 text-ink-900 hover:bg-volt-500 active:bg-volt-600 shadow-volt",
-  secondary: "border border-chalk/70 text-chalk hover:bg-chalk/10",
-  ghost: "text-chalk/80 hover:text-chalk hover:bg-chalk/10",
-  danger: "bg-danger text-ink-900 hover:brightness-95",
+  primary:
+    "bg-volt-400 text-ink-900 font-medium hover:bg-volt-500 active:bg-volt-600 shadow-volt border border-transparent",
+  secondary:
+    "bg-transparent border border-chalk text-chalk hover:bg-chalk/10 active:bg-chalk/20 font-medium",
+  ghost:
+    "bg-transparent border border-transparent text-chalk/80 hover:text-chalk hover:bg-chalk/10 font-medium",
+  danger:
+    "bg-[#F87171]/16 text-[#FCA5A5] border border-[#F87171]/40 hover:bg-[#F87171]/24 active:bg-[#F87171]/32 font-medium",
 };
+
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-8 px-3.5 text-xs gap-1.5",
-  md: "h-10 px-5 text-sm gap-2",
-  lg: "h-12 px-7 text-base gap-2.5",
+  sm: "h-[36px] px-4 text-xs gap-2",
+  md: "h-[44px] px-6 text-sm gap-2",
+  lg: "h-[52px] px-[28px] text-base gap-2.5",
 };
 
 export interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
@@ -39,14 +44,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex items-center justify-center rounded-pill font-medium whitespace-nowrap transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center rounded-pill whitespace-nowrap transition-all duration-150 focus-visible:outline-2 focus-visible:outline-volt-400 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none select-none",
         variants[variant],
         sizes[size],
         className,
       )}
       {...props}
     >
-      {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : leftIcon}
+      {loading ? <Loader2 className="size-4 animate-spin shrink-0" aria-hidden /> : leftIcon}
       {children}
       {!loading && rightIcon}
     </motion.button>
