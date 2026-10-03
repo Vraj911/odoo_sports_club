@@ -80,7 +80,7 @@ export const DEMO_PRESETS: DemoPreset[] = [
   { label: "Staff · Front Desk", role: "STAFF", groups: ["FRONT_DESK"], home: "/desk" },
   { label: "Staff · POS/Bar", role: "STAFF", groups: ["POS_BAR"], home: "/bar" },
   { label: "Staff · Shop/Inventory", role: "STAFF", groups: ["SHOP_INVENTORY"], home: "/shop-console" },
-  { label: "Staff · Front Desk + CRM", role: "STAFF", groups: ["FRONT_DESK", "CRM"], home: "/staff" },
+  { label: "Staff · CRM", role: "STAFF", groups: ["CRM"], home: "/crm" },
   { label: "Staff · Finance", role: "STAFF", groups: ["FINANCE"], home: "/finance" },
   { label: "Staff (No Group)", role: "STAFF", groups: [], home: "/staff" },
   { label: "Admin / Owner", role: "ADMIN", groups: [], home: "/owner" },

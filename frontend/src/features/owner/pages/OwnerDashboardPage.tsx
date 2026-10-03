@@ -449,10 +449,10 @@ export default function OwnerDashboardPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => go("/desk")}
+              onClick={() => go("/admin/plans")}
               className="text-xs text-volt-400 hover:text-volt-300 gap-1"
             >
-              Open Front Desk <ChevronRight className="size-3.5" />
+              Membership Plans <ChevronRight className="size-3.5" />
             </Button>
           </div>
 

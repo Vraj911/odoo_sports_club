@@ -10,6 +10,9 @@ import { PayslipPreview } from "../components/PayslipPreview";
 import type { Payslip } from "../types";
 import { Banknote, FileText, Download, Printer, ShieldCheck, CheckCircle2 } from "lucide-react";
 
+import { downloadOfficialPayslip } from "@/lib/payslipDownload";
+import { toast } from "sonner";
+
 export default function MyPayslipsPage() {
   const { user } = useAuth();
   const { employees, payslips } = useHrStore();
@@ -20,6 +23,11 @@ export default function MyPayslipsPage() {
   const myPayslips = payslips.filter((p) => p.employeeId === currentEmployee.id);
 
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+
+  const handleQuickDownload = (p: Payslip) => {
+    downloadOfficialPayslip(p);
+    toast.success(`Downloading payslip for ${p.month}...`);
+  };
 
   const columns: Column<Payslip>[] = [
     {
@@ -71,12 +79,21 @@ export default function MyPayslipsPage() {
       render: (p) => (
         <div className="flex items-center justify-end gap-2">
           <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleQuickDownload(p)}
+            className="gap-1.5 text-xs text-chalk/80 hover:text-white"
+            title="Download Payslip"
+          >
+            <Download className="size-3.5 text-volt-400" /> Download
+          </Button>
+          <Button
             variant="secondary"
             size="sm"
             onClick={() => setSelectedPayslip(p)}
             className="gap-1.5 text-xs text-volt-400 hover:text-volt-300"
           >
-            <FileText className="size-3.5" /> View Payslip
+            <FileText className="size-3.5" /> View
           </Button>
         </div>
       ),

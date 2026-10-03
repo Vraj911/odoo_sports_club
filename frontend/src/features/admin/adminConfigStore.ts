@@ -374,7 +374,7 @@ export const INITIAL_STAFF_USERS: StaffUser[] = [
   { id: "STF-002", name: "Aarav Mehta", email: "aarav.mehta@championsclub.in", phone: "+91 98200 99002", role: "STAFF", groups: ["POS_BAR"], status: "ACTIVE", lastLogin: "2026-10-03T23:10:00Z", employeeId: "EMP-005" },
   { id: "STF-003", name: "Rohit Verma", email: "rohit.verma@championsclub.in", phone: "+91 98200 99003", role: "STAFF", groups: ["FRONT_DESK"], status: "ACTIVE", lastLogin: "2026-10-03T19:40:00Z", employeeId: "EMP-002" },
   { id: "STF-004", name: "Anita Desai", email: "anita.desai@championsclub.in", phone: "+91 98200 99004", role: "STAFF", groups: ["SHOP_INVENTORY"], status: "ACTIVE", lastLogin: "2026-10-03T21:15:00Z", employeeId: "EMP-004" },
-  { id: "STF-005", name: "Meera Iyer", email: "meera.iyer@championsclub.in", phone: "+91 98200 99005", role: "STAFF", groups: ["FRONT_DESK", "CRM"], status: "ACTIVE", lastLogin: "2026-10-03T17:30:00Z", employeeId: "EMP-003" },
+  { id: "STF-005", name: "Meera Iyer", email: "meera.iyer@championsclub.in", phone: "+91 98200 99005", role: "STAFF", groups: ["CRM"], status: "ACTIVE", lastLogin: "2026-10-03T17:30:00Z", employeeId: "EMP-003" },
   { id: "STF-006", name: "Kabir Khan", email: "kabir.khan@championsclub.in", phone: "+91 98200 99006", role: "STAFF", groups: ["POS_BAR"], status: "ACTIVE", lastLogin: "2026-10-03T22:50:00Z", employeeId: "EMP-006" },
   { id: "STF-007", name: "Devendra Mehta", email: "devendra.mehta@championsclub.in", phone: "+91 98200 99007", role: "STAFF", groups: ["FINANCE", "CRM"], status: "ACTIVE", lastLogin: "2026-10-02T16:00:00Z", employeeId: "EMP-007" },
 ];

@@ -253,7 +253,8 @@ export const NAV_GROUPS: { key: NavGroupKey; label: string }[] = [
 export function getVisibleNavGroups(user: AuthUser | null | undefined): NavGroupKey[] {
   if (!user) return [];
   if (user.role === "ADMIN") {
-    return ["desk", "bar", "shop", "crm", "finance", "hr", "admin", "owner", "self"];
+    // For Admin: Front Desk, Bar & Kitchen, Shop & Inventory, CRM, and My Work sections are removed
+    return ["owner", "admin", "finance", "hr"];
   }
   if (user.role === "MEMBER") return [];
 

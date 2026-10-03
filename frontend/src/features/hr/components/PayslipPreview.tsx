@@ -4,6 +4,8 @@ import { formatINR } from "../hrStore";
 import type { Payslip } from "../types";
 import { toast } from "sonner";
 
+import { downloadOfficialPayslip } from "@/lib/payslipDownload";
+
 export interface PayslipPreviewProps {
   payslip: Payslip;
   onClose?: () => void;
@@ -15,7 +17,8 @@ export function PayslipPreview({ payslip, onClose }: PayslipPreviewProps) {
   };
 
   const handleDownloadPDF = () => {
-    toast.success(`Downloaded official payslip PDF: ${payslip.id}.pdf`);
+    downloadOfficialPayslip(payslip);
+    toast.success(`Payslip downloaded & print dialog opened for ${payslip.id}`);
   };
 
   const handleEmail = () => {

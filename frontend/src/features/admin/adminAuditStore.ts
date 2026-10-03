@@ -23,7 +23,7 @@ export const INITIAL_AUDIT_LOG: AuditLogEntry[] = [
     afterState: {
       staffId: "STF-004",
       name: "Meera Iyer",
-      groups: ["FRONT_DESK", "CRM"],
+      groups: ["CRM"],
       status: "ACTIVE",
     },
   },

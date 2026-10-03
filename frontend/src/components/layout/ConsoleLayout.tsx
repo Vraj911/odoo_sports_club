@@ -19,10 +19,9 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
   const [collapsed, setCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  // Check if page is POS mode to expand full width for tablet touch use
+  // Check if page is POS / Shop Console mode to expand full width
   const isPOS =
-    route.path === "/shop-console" ||
-    route.path === "/shop-console/quick" ||
+    route.path.startsWith("/shop-console") ||
     route.path === "/bar" ||
     route.path === "/bar/table/:id" ||
     route.path === "/kds";
