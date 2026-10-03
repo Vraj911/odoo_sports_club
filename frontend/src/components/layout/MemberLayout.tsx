@@ -3,6 +3,7 @@ import { Bell, CalendarPlus, Home, ListChecks, ShoppingBag, User, LogOut, IdCard
 import { AppLink, useGo } from "@/app/router/links";
 import { Logo } from "@/components/brand/Logo";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useMember } from "@/features/member/memberStore";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { cn } from "@/lib/cn";
@@ -22,6 +23,7 @@ const NAV = [
 
 export function MemberLayout({ route, children }: { route: RouteMeta; children: ReactNode }) {
   const { user, logout } = useAuth();
+  const { profile, unreadCount } = useMember();
   const go = useGo();
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -94,13 +96,22 @@ export function MemberLayout({ route, children }: { route: RouteMeta; children: 
           </div>
 
           <div className="flex items-center gap-4">
-            <StatusPill variant="volt" showDot>
-              Gold Member
+            <StatusPill
+              variant={profile.tier === "Gold" ? "volt" : profile.tier === "Silver" ? "neutral" : "info"}
+              showDot
+            >
+              {profile.tier} Member
             </StatusPill>
 
-            <AppLink to="/app/notifications" className="relative p-2 text-chalk/80 hover:text-chalk">
+            <AppLink
+              to="/app/notifications"
+              className="relative p-2 text-chalk/80 hover:text-chalk"
+              aria-label="View notifications"
+            >
               <Bell className="size-5" />
-              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-volt-400" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-volt-400" />
+              )}
             </AppLink>
 
             {/* User Avatar Menu */}
@@ -110,16 +121,16 @@ export function MemberLayout({ route, children }: { route: RouteMeta; children: 
                 className="flex items-center gap-2 rounded-pill border border-chalk/18 bg-chalk/8 p-1 pr-3 hover:bg-chalk/14 transition-colors"
               >
                 <div className="flex size-8 items-center justify-center rounded-full bg-volt-400 font-semibold text-ink-900 text-xs">
-                  {user?.name ? user.name.slice(0, 2).toUpperCase() : "RS"}
+                  {profile.name.slice(0, 2).toUpperCase()}
                 </div>
-                <span className="text-xs font-medium hidden sm:inline">{user?.name || "Rahul Sharma"}</span>
+                <span className="text-xs font-medium hidden sm:inline">{profile.name}</span>
               </button>
 
               {profileOpen && (
                 <div className="absolute right-0 top-full mt-2 w-56 rounded-[16px] border border-chalk/18 bg-court-600 p-2 shadow-2xl z-50">
                   <div className="px-3 py-2 border-b border-chalk/14">
-                    <p className="text-xs font-semibold text-chalk">{user?.name || "Rahul Sharma"}</p>
-                    <p className="text-[11px] text-chalk/60">rahul.sharma@example.com</p>
+                    <p className="text-xs font-semibold text-chalk">{profile.name}</p>
+                    <p className="text-[11px] text-chalk/60 font-mono">{profile.email}</p>
                   </div>
                   <AppLink
                     to="/app/profile"

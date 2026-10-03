@@ -59,7 +59,7 @@ export const routeConfig: RouteMeta[] = [
   { ...r("/reset-password", "Reset password", "auth", PUBLIC, 2, ["AUTH-03"], KeyRound), load: () => import("@/features/auth/pages/ResetPasswordPage") },
 
   // MEMBER
-  r("/app", "Home", "member", MEMBERS, 4, [], LayoutDashboard),
+  { ...r("/app", "Home", "member", MEMBERS, 4, [], LayoutDashboard), load: () => import("@/features/member/pages/MemberDashboard") },
   { ...r("/app/book", "Book a Court", "member", MEMBERS, 3, ["BKG-07"], CalendarPlus), load: () => import("@/features/member/pages/BookCourt") },
   { ...r("/app/social", "Social Play", "member", MEMBERS, 3, ["BKG-18"], Users), load: () => import("@/features/member/pages/SocialPlay") },
   { ...r("/app/bookings", "My Bookings", "member", MEMBERS, 3, [], ListChecks), load: () => import("@/features/member/pages/MyBookings") },
@@ -67,15 +67,15 @@ export const routeConfig: RouteMeta[] = [
   r("/app/shop", "Shop", "member", MEMBERS, 6, [], ShoppingBag),
   r("/app/cart", "Cart", "member", MEMBERS, 6, [], ShoppingCart),
   r("/app/checkout", "Checkout", "member", MEMBERS, 6, [], CreditCard),
-  r("/app/orders", "Orders", "member", MEMBERS, 4, [], Package),
-  r("/app/orders/:id", "Order Detail", "member", MEMBERS, 4, [], Package),
-  r("/app/tab", "Bar Tab", "member", MEMBERS, 4, ["BAR-06"], Beer),
-  r("/app/invoices", "Invoices", "member", MEMBERS, 4, [], Receipt),
-  r("/app/invoices/:id", "Invoice Detail", "member", MEMBERS, 4, [], FileText),
-  r("/app/membership", "Membership", "member", MEMBERS, 4, ["MEM-09"], BadgeCheck),
-  r("/app/profile", "Profile", "member", MEMBERS, 4, ["MEM-17"], User),
-  r("/app/card", "Member Card", "member", MEMBERS, 4, ["MEM-02"], IdCard),
-  r("/app/notifications", "Notifications", "member", MEMBERS, 4, ["NTF-01"], Bell),
+  { ...r("/app/orders", "Orders", "member", MEMBERS, 4, [], Package), load: () => import("@/features/member/pages/OrdersPage") },
+  { ...r("/app/orders/:id", "Order Detail", "member", MEMBERS, 4, [], Package), load: () => import("@/features/member/pages/OrderDetailPage") },
+  { ...r("/app/tab", "Bar Tab", "member", MEMBERS, 4, ["BAR-06"], Beer), load: () => import("@/features/member/pages/BarTabPage") },
+  { ...r("/app/invoices", "Invoices", "member", MEMBERS, 4, [], Receipt), load: () => import("@/features/member/pages/InvoicesPage") },
+  { ...r("/app/invoices/:id", "Invoice Detail", "member", MEMBERS, 4, [], FileText), load: () => import("@/features/member/pages/InvoiceDetailPage") },
+  { ...r("/app/membership", "Membership", "member", MEMBERS, 4, ["MEM-09"], BadgeCheck), load: () => import("@/features/member/pages/MembershipPage") },
+  { ...r("/app/profile", "Profile", "member", MEMBERS, 4, ["MEM-17"], User), load: () => import("@/features/member/pages/ProfilePage") },
+  { ...r("/app/card", "Member Card", "member", MEMBERS, 4, ["MEM-02"], IdCard), load: () => import("@/features/member/pages/DigitalCardPage") },
+  { ...r("/app/notifications", "Notifications", "member", MEMBERS, 4, ["NTF-01"], Bell), load: () => import("@/features/member/pages/NotificationsPage") },
 
   // FRONT DESK
   c("/desk", "Desk Overview", DESK, 5, "desk", ClipboardList),
