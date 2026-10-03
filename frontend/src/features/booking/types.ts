@@ -16,9 +16,12 @@ export type SlotStatus =
 export type BookingStatus =
   | "PENDING"
   | "CONFIRMED"
+  | "CHECKED_IN"
+  | "COMPLETED"
   | "CANCELLED"
   | "EXPIRED"
-  | "WAITLISTED";
+  | "WAITLISTED"
+  | "NO_SHOW";
 
 export interface Court {
   id: string;
@@ -62,6 +65,57 @@ export interface Booking {
   memberId: string;
   createdAt: number;
   holdExpiry?: number | undefined;
+  guestRate?: number | undefined;
+  planDiscount?: number | undefined;
+  ruleId?: string | undefined;
+  planName?: string | undefined;
+  isRepriced?: boolean | undefined;
+  repricedReason?: string | undefined;
+  paid?: boolean | undefined;
+  paymentStatus?: "PAID" | "UNPAID" | "REFUNDED" | "PARTIAL_REFUND" | undefined;
+  paymentMethod?: string | undefined;
+  paidAt?: number | undefined;
+  cancelReason?: string | undefined;
+  cancelledAt?: number | undefined;
+  refundAmount?: number | undefined;
+  cancellationFee?: number | undefined;
+  waitlistPosition?: number | undefined;
+  checkinCode?: string | undefined;
+  timeline?: { status: BookingStatus; timestamp: number; note?: string | undefined }[] | undefined;
+}
+
+export interface SocialParticipant {
+  id: string;
+  name: string;
+  avatar?: string | undefined;
+  tier: MemberTier;
+  joinedAt: number;
+  isSelf?: boolean | undefined;
+}
+
+export interface SocialWaitlistEntry {
+  id: string;
+  name: string;
+  tier: MemberTier;
+  joinedAt: number;
+  position: number;
+  isSelf?: boolean | undefined;
+}
+
+export interface SocialSession {
+  id: string;
+  title: string;
+  sport: Sport;
+  courtId: string;
+  courtName: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  capacity: number;
+  participants: SocialParticipant[];
+  waitlist: SocialWaitlistEntry[];
+  pricing: Record<MemberTier, number>;
+  description: string;
 }
 
 export interface AlternativeSlot {
