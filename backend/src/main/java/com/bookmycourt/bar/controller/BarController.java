@@ -94,4 +94,46 @@ public class BarController {
     public ApiResponse<List<BarOrderLineResponse>> getKitchenQueue() {
         return ApiResponse.success("Kitchen queue loaded", bar.getKitchenDisplayQueue());
     }
+
+    @GetMapping("/kds")
+    public ApiResponse<List<BarOrderLineResponse>> getKdsQueue(@RequestParam(required = false) String station) {
+        return ApiResponse.success("KDS queue loaded", bar.getKdsQueue(station));
+    }
+
+    @GetMapping("/floor")
+    public ApiResponse<List<com.bookmycourt.bar.dto.BarFloorTableResponse>> getFloorPlan() {
+        return ApiResponse.success("Bar floor plan loaded", bar.getFloorPlan());
+    }
+
+    @GetMapping("/orders/{id}/split")
+    public ApiResponse<com.bookmycourt.bar.dto.SplitBillResponse> splitBill(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "2") int ways) {
+        return ApiResponse.success("Bill split calculated", bar.splitBill(id, ways));
+    }
+
+    @PostMapping("/shifts/open")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<com.bookmycourt.bar.dto.CashShiftResponse> openShift(@Valid @RequestBody com.bookmycourt.bar.dto.OpenShiftRequest request) {
+        return ApiResponse.success("Shift opened", bar.openShift(request));
+    }
+
+    @PostMapping("/shifts/{id}/close")
+    public ApiResponse<com.bookmycourt.bar.dto.CashShiftResponse> closeShift(
+            @PathVariable UUID id,
+            @Valid @RequestBody com.bookmycourt.bar.dto.CloseShiftRequest request) {
+        return ApiResponse.success("Shift closed", bar.closeShift(id, request));
+    }
+
+    @GetMapping("/shifts/current")
+    public ApiResponse<com.bookmycourt.bar.dto.CashShiftResponse> getCurrentShift(@RequestParam UUID staffUserId) {
+        return ApiResponse.success("Current shift loaded", bar.getCurrentShift(staffUserId));
+    }
+
+    @PostMapping("/tables/{id}/transfer")
+    public ApiResponse<BarOrderResponse> transferTable(
+            @PathVariable UUID id,
+            @RequestParam UUID orderId) {
+        return ApiResponse.success("Table transferred", bar.transferTable(orderId, id));
+    }
 }

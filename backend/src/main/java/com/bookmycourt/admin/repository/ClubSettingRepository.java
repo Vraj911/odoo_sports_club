@@ -8,4 +8,8 @@ import java.util.UUID;
 
 public interface ClubSettingRepository extends JpaRepository<ClubSetting, UUID> {
     Optional<ClubSetting> findBySettingKey(String settingKey);
+
+    default Optional<ClubSetting> findByKey(String key) {
+        return findBySettingKey(key);
+    }
 }

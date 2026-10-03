@@ -13,6 +13,7 @@ import com.bookmycourt.bar.dto.UpdateKitchenStatusRequest;
 import com.bookmycourt.bar.entity.BarOrder;
 import com.bookmycourt.bar.entity.BarOrderLine;
 import com.bookmycourt.bar.entity.BarTable;
+import com.bookmycourt.bar.entity.CashShift;
 import com.bookmycourt.bar.entity.MenuItem;
 import com.bookmycourt.bar.mapper.BarMapper;
 import com.bookmycourt.bar.repository.BarOrderLineRepository;
@@ -47,6 +48,8 @@ public class BarService {
     private final MembershipRepository memberships;
     private final AppUserRepository users;
     private final BarMapper mapper;
+    private final com.bookmycourt.bar.repository.CashShiftRepository cashShifts;
+    private final com.bookmycourt.payment.repository.PaymentRepository payments;
 
     public BarService(
             MenuItemRepository menuItems,
@@ -56,7 +59,9 @@ public class BarService {
             MemberRepository members,
             MembershipRepository memberships,
             AppUserRepository users,
-            BarMapper mapper) {
+            BarMapper mapper,
+            com.bookmycourt.bar.repository.CashShiftRepository cashShifts,
+            com.bookmycourt.payment.repository.PaymentRepository payments) {
         this.menuItems = menuItems;
         this.tables = tables;
         this.orders = orders;
@@ -65,6 +70,8 @@ public class BarService {
         this.memberships = memberships;
         this.users = users;
         this.mapper = mapper;
+        this.cashShifts = cashShifts;
+        this.payments = payments;
     }
 
     @Transactional
@@ -209,6 +216,162 @@ public class BarService {
     public List<BarOrderLineResponse> getKitchenDisplayQueue() {
         return lines.findByKitchenStatusIn(List.of("NEW", "PREPARING"))
                 .stream().map(mapper::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<BarOrderLineResponse> getKdsQueue(String station) {
+        List<BarOrderLine> list = lines.findByKitchenStatusIn(List.of("NEW", "PREPARING", "READY"));
+        if (station != null && !station.isBlank()) {
+            list = list.stream().filter(l -> l.getMenuItem() != null && station.equalsIgnoreCase(l.getMenuItem().getCategory())).toList();
+        }
+        return list.stream().map(mapper::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.bookmycourt.bar.dto.BarFloorTableResponse> getFloorPlan() {
+        List<BarTable> allTables = tables.findAll();
+        List<BarOrder> openOrders = orders.findByStatusIn(List.of("OPEN", "SENT", "PARTIALLY_PAID"));
+
+        return allTables.stream().map(t -> {
+            BarOrder activeOrder = openOrders.stream()
+                    .filter(o -> o.getTable() != null && o.getTable().getId().equals(t.getId()))
+                    .findFirst().orElse(null);
+
+            int unservedCount = 0;
+            if (activeOrder != null && activeOrder.getLines() != null) {
+                unservedCount = (int) activeOrder.getLines().stream()
+                        .filter(l -> !"SERVED".equalsIgnoreCase(l.getKitchenStatus()) && !"VOID".equalsIgnoreCase(l.getKitchenStatus()))
+                        .count();
+            }
+
+            return new com.bookmycourt.bar.dto.BarFloorTableResponse(
+                    t.getId(),
+                    t.getTableNumber(),
+                    t.getCapacity(),
+                    activeOrder != null ? "OCCUPIED" : t.getStatus(),
+                    activeOrder != null ? activeOrder.getId() : null,
+                    activeOrder != null ? activeOrder.getOrderNumber() : null,
+                    activeOrder != null ? activeOrder.getTotal() : BigDecimal.ZERO,
+                    activeOrder != null ? activeOrder.getCreatedAt() : null,
+                    unservedCount
+            );
+        }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public com.bookmycourt.bar.dto.SplitBillResponse splitBill(UUID orderId, int ways) {
+        if (ways <= 0) ways = 1;
+        BarOrder order = orders.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderId));
+
+        com.bookmycourt.common.money.Money totalMoney = com.bookmycourt.common.money.Money.ofRupees(order.getTotal());
+        int[] weights = new int[ways];
+        java.util.Arrays.fill(weights, 1);
+        List<com.bookmycourt.common.money.Money> allocated = totalMoney.allocate(weights);
+        List<BigDecimal> amounts = allocated.stream().map(com.bookmycourt.common.money.Money::toRupees).toList();
+
+        return new com.bookmycourt.bar.dto.SplitBillResponse(
+                order.getId(),
+                order.getOrderNumber(),
+                order.getTotal(),
+                ways,
+                amounts
+        );
+    }
+
+    @Transactional
+    public com.bookmycourt.bar.dto.CashShiftResponse openShift(com.bookmycourt.bar.dto.OpenShiftRequest request) {
+        AppUser staff = users.findById(request.staffUserId())
+                .orElseThrow(() -> new NotFoundException("Staff user not found: " + request.staffUserId()));
+
+        CashShift existing = cashShifts.findByStaffUser_IdAndStatus(staff.getId(), "OPEN").orElse(null);
+        if (existing != null) {
+            return toShiftResponse(existing);
+        }
+
+        CashShift cs = new CashShift();
+        cs.setStaffUser(staff);
+        cs.setScope(request.scope() != null ? request.scope().toUpperCase() : "BAR");
+        cs.setOpeningFloat(request.openingFloat());
+        cs.setExpectedCash(request.openingFloat());
+        cs.setCountedCash(request.openingFloat());
+        cs.setStatus("OPEN");
+        cs.setOpenedAt(java.time.OffsetDateTime.now());
+        cashShifts.save(cs);
+        return toShiftResponse(cs);
+    }
+
+    @Transactional
+    public com.bookmycourt.bar.dto.CashShiftResponse closeShift(UUID shiftId, com.bookmycourt.bar.dto.CloseShiftRequest request) {
+        CashShift cs = cashShifts.findById(shiftId)
+                .orElseThrow(() -> new NotFoundException("Cash shift not found: " + shiftId));
+
+        if (!"OPEN".equalsIgnoreCase(cs.getStatus())) {
+            return toShiftResponse(cs);
+        }
+
+        // Calculate expected cash = openingFloat + CASH payments
+        BigDecimal cashIn = payments.findAll().stream()
+                .filter(p -> p.getCashShiftId() != null && p.getCashShiftId().equals(shiftId) && "PAID".equalsIgnoreCase(p.getStatus()) && "CASH".equalsIgnoreCase(p.getMethod()))
+                .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal expected = cs.getOpeningFloat().add(cashIn);
+        BigDecimal variance = request.countedCash().subtract(expected);
+
+        cs.setExpectedCash(expected);
+        cs.setCountedCash(request.countedCash());
+        cs.setVariance(variance);
+        cs.setStatus("CLOSED");
+        cs.setClosedAt(java.time.OffsetDateTime.now());
+        cashShifts.save(cs);
+        return toShiftResponse(cs);
+    }
+
+    @Transactional(readOnly = true)
+    public com.bookmycourt.bar.dto.CashShiftResponse getCurrentShift(UUID staffUserId) {
+        CashShift cs = cashShifts.findByStaffUser_IdAndStatus(staffUserId, "OPEN")
+                .orElseThrow(() -> new NotFoundException("No open shift found for staff: " + staffUserId));
+        return toShiftResponse(cs);
+    }
+
+    @Transactional
+    public BarOrderResponse transferTable(UUID orderId, UUID newTableId) {
+        BarOrder order = orders.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderId));
+        BarTable oldTable = order.getTable();
+        BarTable newTable = tables.findById(newTableId)
+                .orElseThrow(() -> new NotFoundException("New table not found: " + newTableId));
+
+        order.setTable(newTable);
+        newTable.setStatus("OCCUPIED");
+        tables.save(newTable);
+
+        if (oldTable != null && !oldTable.getId().equals(newTableId)) {
+            oldTable.setStatus("AVAILABLE");
+            tables.save(oldTable);
+        }
+        orders.save(order);
+        return mapper.toResponse(order);
+    }
+
+    private com.bookmycourt.bar.dto.CashShiftResponse toShiftResponse(CashShift cs) {
+        String staffName = cs.getStaffUser() != null
+                ? cs.getStaffUser().getFirstName() + " " + cs.getStaffUser().getLastName()
+                : "Staff";
+        return new com.bookmycourt.bar.dto.CashShiftResponse(
+                cs.getId(),
+                cs.getStaffUser() != null ? cs.getStaffUser().getId() : null,
+                staffName,
+                cs.getScope(),
+                cs.getOpenedAt(),
+                cs.getClosedAt(),
+                cs.getOpeningFloat(),
+                cs.getExpectedCash(),
+                cs.getCountedCash(),
+                cs.getVariance(),
+                cs.getStatus()
+        );
     }
 
     @Transactional(readOnly = true)

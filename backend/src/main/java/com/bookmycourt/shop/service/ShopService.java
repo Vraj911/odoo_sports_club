@@ -50,6 +50,7 @@ public class ShopService {
     private final MembershipRepository memberships;
     private final AppUserRepository users;
     private final ShopMapper mapper;
+    private final com.bookmycourt.payment.service.PaymentService paymentService;
 
     public ShopService(
             ProductRepository products,
@@ -60,7 +61,8 @@ public class ShopService {
             MemberRepository members,
             MembershipRepository memberships,
             AppUserRepository users,
-            ShopMapper mapper) {
+            ShopMapper mapper,
+            com.bookmycourt.payment.service.PaymentService paymentService) {
         this.products = products;
         this.variants = variants;
         this.orders = orders;
@@ -70,6 +72,7 @@ public class ShopService {
         this.memberships = memberships;
         this.users = users;
         this.mapper = mapper;
+        this.paymentService = paymentService;
     }
 
     @Transactional
@@ -263,5 +266,89 @@ public class ShopService {
     @Transactional(readOnly = true)
     public List<ProductVariantResponse> getLowStockVariants() {
         return variants.findLowStock().stream().map(mapper::toResponse).toList();
+    }
+
+    @Transactional
+    public ShopOrderResponse checkoutPos(com.bookmycourt.shop.dto.PosCheckoutRequest request) {
+        CreateShopOrderRequest orderReq = new CreateShopOrderRequest(
+                request.memberId(),
+                request.guestName(),
+                request.guestPhone(),
+                "PICKUP",
+                null,
+                request.items()
+        );
+        ShopOrderResponse placed = createOrder(orderReq);
+        ShopOrder order = orders.findById(placed.id())
+                .orElseThrow(() -> new NotFoundException("Order not found"));
+        order.setStatus("COLLECTED");
+        orders.save(order);
+
+        paymentService.recordManual(new com.bookmycourt.payment.dto.ManualPaymentRequest(
+                "SHOP",
+                order.getId(),
+                request.memberId(),
+                order.getTotal(),
+                request.paymentMethod(),
+                "POS Counter Checkout",
+                request.tendered() != null ? request.tendered() : order.getTotal(),
+                null
+        ));
+
+        return mapper.toResponse(order);
+    }
+
+    @Transactional
+    public ShopOrderResponse cancelOrder(UUID orderId, String reason) {
+        ShopOrder order = orders.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Shop order not found: " + orderId));
+        if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
+            return mapper.toResponse(order);
+        }
+        order.setStatus("CANCELLED");
+        orders.save(order);
+
+        for (ShopOrderLine line : order.getLines()) {
+            StockMovement sm = new StockMovement();
+            sm.setProductVariant(line.getProductVariant());
+            sm.setShopOrderLine(line);
+            sm.setMovementType("RETURN");
+            sm.setQuantity(line.getQuantity());
+            sm.setSourceType("RETURN");
+            sm.setSourceId(order.getId());
+            sm.setNotes("Order cancelled: " + (reason != null ? reason : ""));
+            stockMovements.save(sm);
+        }
+
+        return mapper.toResponse(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductVariantResponse> getQuickSaleVariants() {
+        List<ProductVariant> list = variants.findByIsQuickSaleTrueAndActiveTrue();
+        if (list.isEmpty()) {
+            list = variants.findAll().stream().filter(ProductVariant::isActive).limit(10).toList();
+        }
+        return list.stream().map(mapper::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.bookmycourt.shop.dto.RestockSuggestionResponse> getRestockSuggestions() {
+        return variants.findLowStock().stream().map(v -> {
+            int avail = v.getOnHand() - v.getReserved();
+            int suggested = Math.max(10, v.getReorderLevel() * 2 - avail);
+            return new com.bookmycourt.shop.dto.RestockSuggestionResponse(
+                    v.getId(),
+                    v.getProduct() != null ? v.getProduct().getName() : "Product",
+                    v.getVariantName(),
+                    v.getSku(),
+                    v.getOnHand(),
+                    v.getReserved(),
+                    avail,
+                    v.getReorderLevel(),
+                    suggested,
+                    v.getPrice()
+            );
+        }).toList();
     }
 }

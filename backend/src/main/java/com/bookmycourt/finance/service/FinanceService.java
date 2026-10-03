@@ -40,6 +40,7 @@ public class FinanceService {
     private final AppUserRepository users;
     private final PaymentRepository payments;
     private final FinanceMapper mapper;
+    private final com.bookmycourt.common.sequence.NumberSeriesService numberSeries;
 
     public FinanceService(
             InvoiceRepository invoices,
@@ -47,13 +48,15 @@ public class FinanceService {
             MemberRepository members,
             AppUserRepository users,
             PaymentRepository payments,
-            FinanceMapper mapper) {
+            FinanceMapper mapper,
+            com.bookmycourt.common.sequence.NumberSeriesService numberSeries) {
         this.invoices = invoices;
         this.expenses = expenses;
         this.members = members;
         this.users = users;
         this.payments = payments;
         this.mapper = mapper;
+        this.numberSeries = numberSeries;
     }
 
     @Transactional
@@ -65,7 +68,7 @@ public class FinanceService {
         }
 
         Invoice invoice = new Invoice();
-        invoice.setInvoiceNumber("INV-" + System.currentTimeMillis());
+        invoice.setInvoiceNumber(numberSeries.nextInvoiceNumber());
         invoice.setMember(member);
         invoice.setStatus("DRAFT");
         invoice.setIssueDate(LocalDate.now());

@@ -42,7 +42,7 @@ public class ShopController {
         return ApiResponse.success("Product created", shop.createProduct(request));
     }
 
-    @GetMapping("/products")
+    @GetMapping({"/products", "/public/products"})
     public ApiResponse<List<ProductResponse>> listProducts(@RequestParam(required = false) String category) {
         return ApiResponse.success("Products loaded", shop.listProducts(category));
     }
@@ -90,5 +90,29 @@ public class ShopController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateShopOrderStatusRequest request) {
         return ApiResponse.success("Order status updated", shop.updateOrderStatus(id, request));
+    }
+
+    @PostMapping("/pos/checkout")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<ShopOrderResponse> checkoutPos(@Valid @RequestBody com.bookmycourt.shop.dto.PosCheckoutRequest request) {
+        return ApiResponse.success("POS checkout completed", shop.checkoutPos(request));
+    }
+
+    @PostMapping("/orders/{id}/cancel")
+    public ApiResponse<ShopOrderResponse> cancelOrder(
+            @PathVariable UUID id,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : null;
+        return ApiResponse.success("Order cancelled", shop.cancelOrder(id, reason));
+    }
+
+    @GetMapping("/quick-sale")
+    public ApiResponse<List<ProductVariantResponse>> getQuickSale() {
+        return ApiResponse.success("Quick sale items loaded", shop.getQuickSaleVariants());
+    }
+
+    @GetMapping("/inventory/restock-suggestions")
+    public ApiResponse<List<com.bookmycourt.shop.dto.RestockSuggestionResponse>> getRestockSuggestions() {
+        return ApiResponse.success("Restock suggestions loaded", shop.getRestockSuggestions());
     }
 }

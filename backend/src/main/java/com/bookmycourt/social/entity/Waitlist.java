@@ -44,6 +44,15 @@ public class Waitlist extends BaseEntity {
     @Column(nullable = false)
     private Integer position = 1;
 
-    @Column(nullable = false, length = 15)
+    @Column(nullable = false, length = 20)
     private String status = "WAITING";
+
+    @Column(name = "offered_at")
+    private java.time.OffsetDateTime offeredAt;
+
+    @Column(name = "offer_expires_at")
+    private java.time.OffsetDateTime offerExpiresAt;
+
+    @Column(name = "court_slot_start")
+    private java.time.OffsetDateTime courtSlotStart;
 }

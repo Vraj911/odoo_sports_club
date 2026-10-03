@@ -44,6 +44,12 @@ public class SocialParticipant {
     @Column(nullable = false, length = 15)
     private String status = "REGISTERED";
 
+    @Column(name = "price")
+    private java.math.BigDecimal price;
+
+    @Column(name = "payment_status", length = 20)
+    private String paymentStatus = "UNPAID";
+
     @Column(name = "joined_at", nullable = false, updatable = false)
     private Instant joinedAt;
 

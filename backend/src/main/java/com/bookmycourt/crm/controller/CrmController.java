@@ -83,4 +83,32 @@ public class CrmController {
             @RequestParam(required = false) String status) {
         return ApiResponse.success("Follow-ups loaded", crm.listFollowUps(leadId, status));
     }
+
+    @GetMapping("/follow-ups/overdue")
+    public ApiResponse<List<FollowUpResponse>> getOverdueFollowUps() {
+        return ApiResponse.success("Overdue follow-ups loaded", crm.getOverdueFollowUps());
+    }
+
+    @GetMapping("/pipeline")
+    public ApiResponse<com.bookmycourt.crm.dto.LeadPipelineResponse> getPipeline() {
+        return ApiResponse.success("Pipeline summary loaded", crm.getPipeline());
+    }
+
+    @PostMapping("/quotes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<com.bookmycourt.crm.dto.QuoteResponse> createQuote(@Valid @RequestBody com.bookmycourt.crm.dto.CreateQuoteRequest request) {
+        return ApiResponse.success("Quote created", crm.createQuote(request));
+    }
+
+    @GetMapping("/quotes")
+    public ApiResponse<List<com.bookmycourt.crm.dto.QuoteResponse>> listQuotes(@RequestParam(required = false) UUID leadId) {
+        return ApiResponse.success("Quotes loaded", crm.listQuotes(leadId));
+    }
+
+    @PatchMapping("/quotes/{id}/status")
+    public ApiResponse<com.bookmycourt.crm.dto.QuoteResponse> updateQuoteStatus(
+            @PathVariable UUID id,
+            @RequestParam String status) {
+        return ApiResponse.success("Quote status updated", crm.updateQuoteStatus(id, status));
+    }
 }

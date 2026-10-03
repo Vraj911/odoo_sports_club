@@ -75,4 +75,12 @@ public class SocialMapper {
                 w.getCreatedAt()
         );
     }
+
+    public SocialParticipantResponse toParticipantResponse(SocialParticipant p) {
+        return toResponse(p);
+    }
+
+    public WaitlistResponse toWaitlistResponse(Waitlist w) {
+        return toResponse(w);
+    }
 }

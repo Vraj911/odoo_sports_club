@@ -51,4 +51,7 @@ public class ProductVariant extends BaseEntity {
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
+
+    @Column(name = "is_quick_sale", nullable = false)
+    private boolean isQuickSale = false;
 }

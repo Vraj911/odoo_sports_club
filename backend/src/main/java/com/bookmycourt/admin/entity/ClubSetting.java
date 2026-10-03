@@ -35,4 +35,8 @@ public class ClubSetting {
 
     @Column(name = "updated_at", insertable = false, updatable = false)
     private Instant updatedAt;
+
+    public String getValue() {
+        return settingValue;
+    }
 }

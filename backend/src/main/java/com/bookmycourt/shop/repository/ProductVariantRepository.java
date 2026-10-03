@@ -14,4 +14,6 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     @Query("SELECT pv FROM ProductVariant pv WHERE pv.active = true AND (pv.onHand - pv.reserved) <= pv.reorderLevel")
     List<ProductVariant> findLowStock();
+
+    List<ProductVariant> findByIsQuickSaleTrueAndActiveTrue();
 }

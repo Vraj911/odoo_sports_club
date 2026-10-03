@@ -57,4 +57,21 @@ public class Payment extends BaseEntity {
     private AppUser receivedBy;
 
     private String reference;
+
+    @Column(nullable = false)
+    private boolean simulated = false;
+
+    @Column(name = "cash_shift_id")
+    private UUID cashShiftId;
+
+    @Column(name = "intent_id")
+    private UUID intentId;
+
+    private BigDecimal tendered;
+
+    @Column(name = "change_given", nullable = false)
+    private BigDecimal changeGiven = BigDecimal.ZERO;
+
+    @Column(name = "refunded_total", nullable = false)
+    private BigDecimal refundedTotal = BigDecimal.ZERO;
 }

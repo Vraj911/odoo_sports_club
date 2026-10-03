@@ -32,18 +32,21 @@ public class CrmService {
     private final MemberRepository members;
     private final AppUserRepository users;
     private final CrmMapper mapper;
+    private final com.bookmycourt.crm.repository.QuoteRepository quotes;
 
     public CrmService(
             LeadRepository leads,
             FollowUpRepository followUps,
             MemberRepository members,
             AppUserRepository users,
-            CrmMapper mapper) {
+            CrmMapper mapper,
+            com.bookmycourt.crm.repository.QuoteRepository quotes) {
         this.leads = leads;
         this.followUps = followUps;
         this.members = members;
         this.users = users;
         this.mapper = mapper;
+        this.quotes = quotes;
     }
 
     @Transactional
@@ -162,5 +165,132 @@ public class CrmService {
             return followUps.findByStatusOrderByDueAtAsc(status).stream().map(mapper::toResponse).toList();
         }
         return followUps.findAll().stream().map(mapper::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FollowUpResponse> getOverdueFollowUps() {
+        return followUps.findByStatusOrderByDueAtAsc("OPEN").stream()
+                .filter(f -> f.getDueAt() != null && f.getDueAt().isBefore(Instant.now()))
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public com.bookmycourt.crm.dto.LeadPipelineResponse getPipeline() {
+        List<Lead> all = leads.findAll();
+        long total = all.size();
+        long newL = all.stream().filter(l -> "NEW".equalsIgnoreCase(l.getStatus())).count();
+        long contacted = all.stream().filter(l -> "CONTACTED".equalsIgnoreCase(l.getStatus())).count();
+        long quoteSent = all.stream().filter(l -> "QUOTE_SENT".equalsIgnoreCase(l.getStatus())).count();
+        long trial = all.stream().filter(l -> "TRIAL_BOOKED".equalsIgnoreCase(l.getStatus())).count();
+        long won = all.stream().filter(l -> "WON".equalsIgnoreCase(l.getStatus())).count();
+        long lost = all.stream().filter(l -> "LOST".equalsIgnoreCase(l.getStatus())).count();
+
+        double conversion = total > 0 ? (won * 100.0) / total : 0.0;
+        java.util.Map<String, Long> bySource = all.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        l -> l.getSource() != null ? l.getSource() : "OTHER",
+                        java.util.stream.Collectors.counting()
+                ));
+
+        return new com.bookmycourt.crm.dto.LeadPipelineResponse(
+                total,
+                newL,
+                contacted,
+                quoteSent,
+                trial,
+                won,
+                lost,
+                conversion,
+                bySource
+        );
+    }
+
+    @Transactional
+    public com.bookmycourt.crm.dto.QuoteResponse createQuote(com.bookmycourt.crm.dto.CreateQuoteRequest request) {
+        Lead lead = leads.findById(request.leadId())
+                .orElseThrow(() -> new NotFoundException("Lead not found: " + request.leadId()));
+
+        com.bookmycourt.crm.entity.Quote q = new com.bookmycourt.crm.entity.Quote();
+        q.setLead(lead);
+        q.setValidUntil(request.validUntil());
+        q.setStatus("DRAFT");
+        q.setNotes(request.notes());
+
+        java.math.BigDecimal subtotal = java.math.BigDecimal.ZERO;
+        List<com.bookmycourt.crm.entity.QuoteLine> lineList = new java.util.ArrayList<>();
+
+        for (com.bookmycourt.crm.dto.QuoteLineRequest lr : request.lines()) {
+            java.math.BigDecimal taxRate = lr.taxPercent() != null ? lr.taxPercent() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal net = lr.quantity().multiply(lr.unitPrice());
+            java.math.BigDecimal tax = net.multiply(taxRate).divide(java.math.BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal lineTotal = net.add(tax);
+
+            com.bookmycourt.crm.entity.QuoteLine line = new com.bookmycourt.crm.entity.QuoteLine();
+            line.setQuote(q);
+            line.setDescription(lr.description());
+            line.setQuantity(lr.quantity());
+            line.setUnitPrice(lr.unitPrice());
+            line.setTaxPercent(taxRate);
+            line.setLineTotal(lineTotal);
+            lineList.add(line);
+
+            subtotal = subtotal.add(lineTotal);
+        }
+
+        q.setTotal(subtotal);
+        q.setLines(lineList);
+        quotes.save(q);
+
+        lead.setStatus("QUOTE_SENT");
+        leads.save(lead);
+
+        return toQuoteResponse(q);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.bookmycourt.crm.dto.QuoteResponse> listQuotes(UUID leadId) {
+        List<com.bookmycourt.crm.entity.Quote> list = (leadId != null)
+                ? quotes.findByLead_IdOrderByCreatedAtDesc(leadId)
+                : quotes.findAll();
+        return list.stream().map(this::toQuoteResponse).toList();
+    }
+
+    @Transactional
+    public com.bookmycourt.crm.dto.QuoteResponse updateQuoteStatus(UUID quoteId, String status) {
+        com.bookmycourt.crm.entity.Quote q = quotes.findById(quoteId)
+                .orElseThrow(() -> new NotFoundException("Quote not found: " + quoteId));
+        q.setStatus(status.toUpperCase());
+        quotes.save(q);
+        return toQuoteResponse(q);
+    }
+
+    private com.bookmycourt.crm.dto.QuoteResponse toQuoteResponse(com.bookmycourt.crm.entity.Quote q) {
+        String leadName = q.getLead() != null
+                ? q.getLead().getFirstName() + " " + q.getLead().getLastName()
+                : "Lead";
+
+        List<com.bookmycourt.crm.dto.QuoteLineResponse> lineResponses = q.getLines().stream().map(l ->
+                new com.bookmycourt.crm.dto.QuoteLineResponse(
+                        l.getId(),
+                        l.getDescription(),
+                        l.getQuantity(),
+                        l.getUnitPrice(),
+                        l.getTaxPercent(),
+                        l.getLineTotal()
+                )
+        ).toList();
+
+        return new com.bookmycourt.crm.dto.QuoteResponse(
+                q.getId(),
+                q.getLead() != null ? q.getLead().getId() : null,
+                leadName,
+                q.getValidUntil(),
+                q.getTotal(),
+                q.getStatus(),
+                q.getNotes(),
+                q.getCreatedAt(),
+                lineResponses
+        );
     }
 }

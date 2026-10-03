@@ -13,6 +13,10 @@ public final class MoneyEvents {
     }
 
     public record PaymentRecorded(UUID eventId, Instant occurredAt, UUID paymentId, String sourceType, UUID sourceId, UUID memberId, Money amount, String method, boolean simulated) implements DomainEvent {
+        public PaymentRecorded(UUID paymentId, UUID memberId, java.math.BigDecimal amount, String method, String sourceType, UUID sourceId) {
+            this(UUID.randomUUID(), Instant.now(), paymentId, sourceType, sourceId, memberId, amount != null ? Money.ofRupees(amount) : Money.ZERO, method, false);
+        }
+
         @Override
         public String aggregateKey() {
             return "PAYMENT:" + paymentId;

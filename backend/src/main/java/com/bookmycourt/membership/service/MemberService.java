@@ -245,7 +245,7 @@ public class MemberService {
                         "BOOKING",
                         b.getCreatedAt(),
                         "Booking: " + b.getCourt().getName() + " (" + b.getStatus() + ")",
-                        b.getPrice(),
+                        b.getPriceCharged(),
                         b.getId()
                 )));
 

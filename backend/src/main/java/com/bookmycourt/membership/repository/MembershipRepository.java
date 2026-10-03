@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface MembershipRepository extends JpaRepository<Membership, UUID> {
 
     List<Membership> findByMember_IdOrderByStartDateDesc(UUID memberId);
+    List<Membership> findByStatusIn(List<String> statuses);
 
     @Query("""
             SELECT m FROM Membership m

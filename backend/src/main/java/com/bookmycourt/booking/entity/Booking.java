@@ -47,4 +47,17 @@ public class Booking extends BaseEntity {
     private OffsetDateTime expiresAt;
     @Column(name = "created_by")
     private UUID createdBy;
+    @Column(name = "price_breakdown")
+    private String priceBreakdown;
+    @Column(name = "payment_policy")
+    private String paymentPolicy;
+    @Column(name = "source")
+    private String source;
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+    @jakarta.persistence.Version
+    @Column(name = "version")
+    private Long version;
 }

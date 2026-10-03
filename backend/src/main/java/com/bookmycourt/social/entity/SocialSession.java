@@ -17,6 +17,7 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -48,6 +49,12 @@ public class SocialSession extends BaseEntity {
     private String status = "OPEN";
 
     private String notes;
+
+    @Column(name = "template_id")
+    private UUID templateId;
+
+    @Column(name = "price_by_tier")
+    private String priceByTier;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialParticipant> participants = new ArrayList<>();
