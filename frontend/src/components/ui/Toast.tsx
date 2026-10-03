@@ -22,6 +22,46 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | null>(null);
 
+let globalToastDispatch: ((item: { type: ToastType; title: string; message?: string }) => void) | null = null;
+
+export interface ToastOptions {
+  type?: ToastType;
+  title: string;
+  message?: string | undefined;
+}
+
+export const toast = (
+  first: ToastType | ToastOptions | string,
+  second?: string,
+  third?: string
+) => {
+  if (!globalToastDispatch) return;
+  if (typeof first === "object") {
+    globalToastDispatch({
+      type: first.type || "info",
+      title: first.title,
+      message: first.message,
+    });
+  } else if (typeof first === "string" && second !== undefined) {
+    globalToastDispatch({
+      type: first as ToastType,
+      title: second,
+      message: third,
+    });
+  } else if (typeof first === "string") {
+    globalToastDispatch({
+      type: "info",
+      title: first,
+      message: second,
+    });
+  }
+};
+
+toast.success = (title: string, message?: string) => toast("success", title, message);
+toast.error = (title: string, message?: string) => toast("error", title, message);
+toast.warning = (title: string, message?: string) => toast("warning", title, message);
+toast.info = (title: string, message?: string) => toast("info", title, message);
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -29,7 +69,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const toast = useCallback((type: ToastType, title: string, message?: string | undefined) => {
+  const showToast = useCallback((type: ToastType, title: string, message?: string | undefined) => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, type, title, message }]);
     setTimeout(() => {
@@ -37,13 +77,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 4000);
   }, [removeToast]);
 
-  const success = useCallback((title: string, message?: string | undefined) => toast("success", title, message), [toast]);
-  const error = useCallback((title: string, message?: string | undefined) => toast("error", title, message), [toast]);
-  const warning = useCallback((title: string, message?: string | undefined) => toast("warning", title, message), [toast]);
-  const info = useCallback((title: string, message?: string | undefined) => toast("info", title, message), [toast]);
+  // Connect global dispatcher
+  globalToastDispatch = useCallback(
+    (item: { type: ToastType; title: string; message?: string }) => {
+      showToast(item.type, item.title, item.message);
+    },
+    [showToast]
+  );
+
+  const success = useCallback((title: string, message?: string | undefined) => showToast("success", title, message), [showToast]);
+  const error = useCallback((title: string, message?: string | undefined) => showToast("error", title, message), [showToast]);
+  const warning = useCallback((title: string, message?: string | undefined) => showToast("warning", title, message), [showToast]);
+  const info = useCallback((title: string, message?: string | undefined) => showToast("info", title, message), [showToast]);
 
   return (
-    <ToastContext.Provider value={{ toast, success, error, warning, info }}>
+    <ToastContext.Provider value={{ toast: showToast, success, error, warning, info }}>
       {children}
       {/* Toast Top Right Stack */}
       <div className="fixed top-5 right-5 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">

@@ -123,11 +123,11 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/kds", "Kitchen Display", BAR, 7, "bar", ChefHat), load: () => import("@/features/bar/pages/KDSPage") },
 
   // ─── CRM ────────────────────────────────────────────────────────────
-  c("/crm", "CRM Overview", CRM_ACCESS, 8, "crm", Contact),
-  c("/crm/leads", "Leads", LEADS_ACCESS, 8, "crm", Target), // FRONT_DESK or CRM or ADMIN
-  c("/crm/leads/:id", "Lead Detail", LEADS_ACCESS, 8, "crm", Target), // FRONT_DESK or CRM or ADMIN
-  c("/crm/leads/:id/quote", "Quote", CRM_ACCESS, 8, "crm", FileSignature),
-  c("/crm/campaigns", "Campaigns", CRM_ACCESS, 8, "crm", Megaphone),
+  { ...c("/crm", "CRM Overview", CRM_ACCESS, 8, "crm", Contact), load: () => import("@/features/crm/pages/CrmDashboardPage") },
+  { ...c("/crm/leads", "Leads", LEADS_ACCESS, 8, "crm", Target), load: () => import("@/features/crm/pages/CrmLeadsPage") },
+  { ...c("/crm/leads/:id", "Lead Detail", LEADS_ACCESS, 8, "crm", Target), load: () => import("@/features/crm/pages/CrmLeadDetailPage") },
+  { ...c("/crm/leads/:id/quote", "Quote", CRM_ACCESS, 8, "crm", FileSignature), load: () => import("@/features/crm/pages/CrmQuoteBuilderPage") },
+  { ...c("/crm/campaigns", "Campaigns", CRM_ACCESS, 8, "crm", Megaphone), load: () => import("@/features/crm/pages/CrmCampaignsPage") },
 
   // ─── FINANCE ────────────────────────────────────────────────────────
   c("/finance", "Finance Overview", FIN, 9, "finance", Landmark),
