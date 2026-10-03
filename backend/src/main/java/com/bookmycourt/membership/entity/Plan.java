@@ -35,6 +35,9 @@ public class Plan extends BaseEntity {
     @Column(name = "bar_discount_percent", nullable = false)
     private BigDecimal barDiscountPercent;
 
+    @Column(name = "price", nullable = false)
+    private BigDecimal price = BigDecimal.ZERO;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 }

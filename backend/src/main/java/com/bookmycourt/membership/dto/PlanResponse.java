@@ -1,5 +1,6 @@
 package com.bookmycourt.membership.dto;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public record PlanResponse(
@@ -8,6 +9,7 @@ public record PlanResponse(
         String description,
         int validityDays,
         int advanceBookingDays,
-        int maxBookingsPerDay
+        int maxBookingsPerDay,
+        BigDecimal price
 ) {
 }

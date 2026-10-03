@@ -9,6 +9,11 @@ import java.util.UUID;
 
 public interface LeadRepository extends JpaRepository<Lead, UUID> {
     Optional<Lead> findByLeadNumber(String leadNumber);
+    Optional<Lead> findByEmailIgnoreCase(String email);
+    Optional<Lead> findByPhone(String phone);
     List<Lead> findByStatus(String status);
     List<Lead> findByOrderByCreatedAtDesc();
+
+    @org.springframework.data.jpa.repository.Query("SELECT MAX(l.leadNumber) FROM Lead l")
+    String findMaxLeadNumber();
 }

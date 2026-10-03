@@ -30,10 +30,15 @@ import com.bookmycourt.membership.entity.Member;
 import com.bookmycourt.membership.entity.Plan;
 import com.bookmycourt.membership.repository.MemberRepository;
 import com.bookmycourt.membership.service.MembershipService;
+import com.bookmycourt.payment.entity.Payment;
 import com.bookmycourt.payment.entity.PaymentDue;
+import com.bookmycourt.payment.entity.Refund;
 import com.bookmycourt.payment.repository.PaymentDueRepository;
+import com.bookmycourt.payment.repository.PaymentRepository;
+import com.bookmycourt.payment.repository.RefundRepository;
 import com.bookmycourt.pricing.service.PriceQuote;
 import com.bookmycourt.pricing.service.PricingEngine;
+import com.bookmycourt.social.repository.SocialParticipantRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -84,6 +89,9 @@ public class BookingService {
     private final DomainEventPublisher publisher;
     private final Guard guard;
     private final Clock clock;
+    private final SocialParticipantRepository socialParticipantRepository;
+    private final PaymentRepository paymentRepository;
+    private final RefundRepository refundRepository;
 
     private static final StateMachine<BookingStatus> STATE_MACHINE = StateMachine.of(BookingStatus.class)
             .allow(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.EXPIRED, BookingStatus.CANCELLED)
@@ -106,7 +114,10 @@ public class BookingService {
             AuditService auditService,
             DomainEventPublisher publisher,
             Guard guard,
-            Clock clock
+            Clock clock,
+            SocialParticipantRepository socialParticipantRepository,
+            PaymentRepository paymentRepository,
+            RefundRepository refundRepository
     ) {
         this.bookings = bookings;
         this.courts = courts;
@@ -123,6 +134,9 @@ public class BookingService {
         this.publisher = publisher;
         this.guard = guard;
         this.clock = clock;
+        this.socialParticipantRepository = socialParticipantRepository;
+        this.paymentRepository = paymentRepository;
+        this.refundRepository = refundRepository;
     }
 
     // =====================================================================
@@ -214,15 +228,16 @@ public class BookingService {
         Actor actor = ActorHolder.current();
         boolean staff = isStaff(actor);
 
-        LocalTime startTime = parseStartTime(request.startTime());
-        OffsetDateTime start = ZonedDateTime.of(request.date(), startTime, ClubTime.IST).toOffsetDateTime();
-        OffsetDateTime end = start.plusMinutes(60);
-
         Court court = courts.findById(request.courtId())
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Court not found"));
         if (!court.isActive()) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Court is inactive");
         }
+
+        LocalTime startTime = parseStartTime(request.startTime());
+        OffsetDateTime start = ZonedDateTime.of(request.date(), startTime, ClubTime.IST).toOffsetDateTime();
+        int slotDuration = court.getSlotDurationMinutes() > 0 ? court.getSlotDurationMinutes() : 60;
+        OffsetDateTime end = start.plusMinutes(slotDuration);
 
         final Member member;
         if (request.memberId() != null) {
@@ -398,8 +413,10 @@ public class BookingService {
             return;
         }
         int active = bookings.countActiveForMemberDay(memberId, day, CAP_STATUSES);
-        if (active >= dailyCap) {
-            // TODO (BKG-08): also add the member's JOINED social-session count here once SocialParticipantRepository is available.
+        Instant dayStart = day.atStartOfDay(ClubTime.IST).toInstant();
+        Instant dayEnd = day.plusDays(1).atStartOfDay(ClubTime.IST).toInstant();
+        int joinedSocials = socialParticipantRepository.countJoinedForMemberDay(memberId, dayStart, dayEnd);
+        if (active + joinedSocials >= dailyCap) {
             throw new DomainException(ErrorCode.CAP_EXCEEDED, "Daily booking cap of " + dailyCap + " reached for member");
         }
     }
@@ -473,6 +490,30 @@ public class BookingService {
                         booking.setCancelReason(reason);
                         booking.setCancelledAt(OffsetDateTime.now(clock));
                         booking.setNotes((booking.getNotes() != null ? booking.getNotes() + "; " : "") + "Cancelled: " + reason);
+                        if (refund.isPositive()) {
+                            booking.setPaymentStatus("REFUNDED");
+                            paymentRepository.findBySourceTypeAndSourceId("BOOKING", bookingId).stream()
+                                    .filter(p -> "PAID".equalsIgnoreCase(p.getStatus()))
+                                    .findFirst()
+                                    .ifPresent(p -> {
+                                Refund ref = new Refund();
+                                ref.setPayment(p);
+                                ref.setAmount(refund.toRupees());
+                                ref.setReason("Booking cancellation: " + (reason != null ? reason : ""));
+                                ref.setStatus("PROCESSED");
+                                ref.setReference("REF-" + UUID.randomUUID().toString().substring(0, 8));
+                                ref.setProcessedAt(Instant.now(clock));
+                                refundRepository.save(ref);
+
+                                p.setRefundedTotal(p.getRefundedTotal().add(refund.toRupees()));
+                                if (p.getRefundedTotal().compareTo(p.getAmount()) >= 0) {
+                                    p.setStatus("REFUNDED");
+                                } else {
+                                    p.setStatus("PARTIALLY_REFUNDED");
+                                }
+                                paymentRepository.save(p);
+                            });
+                        }
                         bookings.save(booking);
                         occupancyService.releaseBooking(bookingId);
 

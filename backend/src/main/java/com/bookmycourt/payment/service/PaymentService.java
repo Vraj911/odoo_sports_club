@@ -2,6 +2,8 @@ package com.bookmycourt.payment.service;
 
 import com.bookmycourt.booking.entity.Booking;
 import com.bookmycourt.booking.repository.BookingRepository;
+import com.bookmycourt.common.error.DomainException;
+import com.bookmycourt.common.error.ErrorCode;
 import com.bookmycourt.common.event.DomainEventPublisher;
 import com.bookmycourt.common.event.events.MoneyEvents.PaymentRecorded;
 import com.bookmycourt.common.exception.NotFoundException;
@@ -117,14 +119,19 @@ public class PaymentService {
                     .orElseThrow(() -> new NotFoundException("Membership not found: " + request.sourceId()));
             amount = m.getPricePaid() != null && m.getPricePaid().compareTo(BigDecimal.ZERO) > 0
                     ? m.getPricePaid()
-                    : BigDecimal.valueOf(1500);
+                    : (m.getPlan() != null && m.getPlan().getPrice() != null && m.getPlan().getPrice().compareTo(BigDecimal.ZERO) > 0
+                            ? m.getPlan().getPrice()
+                            : BigDecimal.valueOf(1500));
             if (member == null) {
                 member = m.getMember();
             }
             m.setStatus("ACTIVE");
-            m.setStartDate(LocalDate.now());
-            if (m.getPlan() != null) {
-                m.setEndDate(LocalDate.now().plusDays(m.getPlan().getValidityDays() > 0 ? m.getPlan().getValidityDays() - 1 : 364));
+            m.setPaymentStatus("PAID");
+            if (m.getStartDate() == null) {
+                m.setStartDate(LocalDate.now());
+                if (m.getPlan() != null) {
+                    m.setEndDate(m.getStartDate().plusDays(m.getPlan().getValidityDays() > 0 ? m.getPlan().getValidityDays() - 1 : 364));
+                }
             }
             m.setPricePaid(amount);
             memberships.save(m);
@@ -184,31 +191,39 @@ public class PaymentService {
         payment.setStatus("PAID");
         payment.setPaidAt(Instant.now());
 
-        // Update target entity status
+        // Validate and update target entity status
         if ("BOOKING".equalsIgnoreCase(request.sourceType()) && request.sourceId() != null) {
-            bookings.findById(request.sourceId()).ifPresent(b -> {
-                b.setPaymentStatus("PAID");
-                b.setStatus("CONFIRMED");
-                b.setExpiresAt(null);
-                bookings.save(b);
-            });
+            Booking b = bookings.findById(request.sourceId())
+                    .orElseThrow(() -> new NotFoundException("Booking not found: " + request.sourceId()));
+            if (b.getPriceCharged() != null && request.amount().compareTo(b.getPriceCharged()) < 0) {
+                throw new DomainException(ErrorCode.VALIDATION_FAILED, "Payment amount " + request.amount() + " is less than booking price " + b.getPriceCharged());
+            }
+            b.setPaymentStatus("PAID");
+            b.setStatus("CONFIRMED");
+            b.setExpiresAt(null);
+            bookings.save(b);
         } else if ("INVOICE".equalsIgnoreCase(request.sourceType()) && request.sourceId() != null) {
-            invoices.findById(request.sourceId()).ifPresent(inv -> {
-                BigDecimal newPaid = inv.getAmountPaid().add(request.amount());
-                inv.setAmountPaid(newPaid);
-                if (newPaid.compareTo(inv.getTotal()) >= 0) {
-                    inv.setStatus("PAID");
-                } else {
-                    inv.setStatus("PARTIAL");
-                }
-                invoices.save(inv);
-            });
+            Invoice inv = invoices.findById(request.sourceId())
+                    .orElseThrow(() -> new NotFoundException("Invoice not found: " + request.sourceId()));
+            BigDecimal outstanding = inv.getTotal().subtract(inv.getAmountPaid());
+            if (request.amount().compareTo(outstanding) > 0) {
+                throw new DomainException(ErrorCode.VALIDATION_FAILED, "Payment amount " + request.amount() + " exceeds invoice outstanding balance " + outstanding);
+            }
+            BigDecimal newPaid = inv.getAmountPaid().add(request.amount());
+            inv.setAmountPaid(newPaid);
+            if (newPaid.compareTo(inv.getTotal()) >= 0) {
+                inv.setStatus("PAID");
+            } else {
+                inv.setStatus("PARTIAL");
+            }
+            invoices.save(inv);
         } else if ("MEMBERSHIP".equalsIgnoreCase(request.sourceType()) && request.sourceId() != null) {
-            memberships.findById(request.sourceId()).ifPresent(m -> {
-                m.setStatus("ACTIVE");
-                m.setPricePaid(request.amount());
-                memberships.save(m);
-            });
+            Membership m = memberships.findById(request.sourceId())
+                    .orElseThrow(() -> new NotFoundException("Membership not found: " + request.sourceId()));
+            m.setStatus("ACTIVE");
+            m.setPaymentStatus("PAID");
+            m.setPricePaid(request.amount());
+            memberships.save(m);
         }
 
         payments.save(payment);
@@ -255,6 +270,32 @@ public class PaymentService {
         r.setReference(request.reference() != null ? request.reference() : "REF-" + UUID.randomUUID().toString().substring(0, 8));
         r.setProcessedAt(Instant.now());
         refunds.save(r);
+
+        // Reverse source entity state
+        if ("BOOKING".equalsIgnoreCase(payment.getSourceType()) && payment.getSourceId() != null) {
+            bookings.findById(payment.getSourceId()).ifPresent(b -> {
+                b.setPaymentStatus("REFUNDED");
+                b.setStatus("CANCELLED");
+                bookings.save(b);
+            });
+        } else if ("INVOICE".equalsIgnoreCase(payment.getSourceType()) && payment.getSourceId() != null) {
+            invoices.findById(payment.getSourceId()).ifPresent(inv -> {
+                BigDecimal remainingPaid = inv.getAmountPaid().subtract(request.amount()).max(BigDecimal.ZERO);
+                inv.setAmountPaid(remainingPaid);
+                if (remainingPaid.compareTo(BigDecimal.ZERO) == 0) {
+                    inv.setStatus("REFUNDED");
+                } else {
+                    inv.setStatus("PARTIAL");
+                }
+                invoices.save(inv);
+            });
+        } else if ("MEMBERSHIP".equalsIgnoreCase(payment.getSourceType()) && payment.getSourceId() != null) {
+            memberships.findById(payment.getSourceId()).ifPresent(m -> {
+                m.setStatus("CANCELLED");
+                m.setPaymentStatus("REFUNDED");
+                memberships.save(m);
+            });
+        }
 
         return new RefundResponse(
                 r.getId(),

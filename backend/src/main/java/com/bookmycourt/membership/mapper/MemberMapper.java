@@ -35,7 +35,8 @@ public class MemberMapper {
                 plan.getDescription(),
                 plan.getValidityDays(),
                 plan.getAdvanceBookingDays(),
-                plan.getMaxBookingsPerDay()
+                plan.getMaxBookingsPerDay(),
+                plan.getPrice()
         );
     }
 

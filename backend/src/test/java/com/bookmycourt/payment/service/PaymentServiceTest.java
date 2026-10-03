@@ -166,4 +166,51 @@ class PaymentServiceTest {
         assertEquals("REFUNDED", p.getStatus());
         assertEquals(new BigDecimal("500.00"), p.getRefundedTotal());
     }
+
+    @Test
+    void refund_forBooking_reversesBookingStatus() {
+        UUID bookingId = UUID.randomUUID();
+        Booking b = new Booking();
+        b.setStatus("CONFIRMED");
+        b.setPaymentStatus("PAID");
+        when(bookings.findById(bookingId)).thenReturn(Optional.of(b));
+
+        UUID paymentId = UUID.randomUUID();
+        Payment p = new Payment();
+        p.setAmount(new BigDecimal("500.00"));
+        p.setRefundedTotal(BigDecimal.ZERO);
+        p.setStatus("PAID");
+        p.setSourceType("BOOKING");
+        p.setSourceId(bookingId);
+
+        when(payments.findById(paymentId)).thenReturn(Optional.of(p));
+
+        RefundRequest req = new RefundRequest(new BigDecimal("500.00"), "Full refund", null);
+        service.refund(paymentId, req);
+
+        assertEquals("CANCELLED", b.getStatus());
+        assertEquals("REFUNDED", b.getPaymentStatus());
+        verify(bookings).save(b);
+    }
+
+    @Test
+    void recordManual_bookingUnderpayment_throwsException() {
+        UUID bookingId = UUID.randomUUID();
+        Booking b = new Booking();
+        b.setPriceCharged(new BigDecimal("500.00"));
+        when(bookings.findById(bookingId)).thenReturn(Optional.of(b));
+
+        ManualPaymentRequest req = new ManualPaymentRequest(
+                "BOOKING",
+                bookingId,
+                null,
+                new BigDecimal("300.00"),
+                "CASH",
+                "CASH-1",
+                new BigDecimal("300.00"),
+                null
+        );
+
+        assertThrows(com.bookmycourt.common.error.DomainException.class, () -> service.recordManual(req));
+    }
 }

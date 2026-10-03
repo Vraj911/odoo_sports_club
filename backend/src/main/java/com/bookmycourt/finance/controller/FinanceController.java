@@ -65,6 +65,14 @@ public class FinanceController {
         return ApiResponse.success("Payment recorded on invoice", finance.recordPayment(id, request));
     }
 
+    @PostMapping("/invoices/{id}/credit-note")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<InvoiceResponse> issueCreditNote(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String reason) {
+        return ApiResponse.success("Credit note issued", finance.issueCreditNote(id, reason));
+    }
+
     @PostMapping("/expenses")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ExpenseResponse> recordExpense(@Valid @RequestBody ExpenseRequest request) {

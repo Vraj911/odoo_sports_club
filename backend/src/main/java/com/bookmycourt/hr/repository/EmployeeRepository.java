@@ -12,4 +12,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     Optional<Employee> findByUser_Id(UUID userId);
     List<Employee> findByEmploymentStatus(String status);
     List<Employee> findByOrderByJoiningDateDesc();
+
+    @org.springframework.data.jpa.repository.Query("SELECT MAX(e.employeeNumber) FROM Employee e")
+    String findMaxEmployeeNumber();
 }

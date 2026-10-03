@@ -36,6 +36,11 @@ class HrServiceTest {
     private PayrollRunRepository payrollRuns;
     private HrService service;
 
+    private static final java.time.Clock FIXED_CLOCK = java.time.Clock.fixed(
+            java.time.Instant.parse("2026-10-03T10:00:00Z"),
+            com.bookmycourt.common.time.ClubTime.IST
+    );
+
     @BeforeEach
     void setUp() {
         employees = Mockito.mock(EmployeeRepository.class);
@@ -50,7 +55,8 @@ class HrServiceTest {
 
         service = new HrService(
                 employees, attendances, users, mapper,
-                leaveTypes, leaveRequests, shifts, payrollRuns, payslips
+                leaveTypes, leaveRequests, shifts, payrollRuns, payslips,
+                FIXED_CLOCK
         );
     }
 
@@ -66,7 +72,8 @@ class HrServiceTest {
         Attendance a2 = new Attendance();
         a2.setStatus("ON_LEAVE");
 
-        when(attendances.findByAttendanceDate(LocalDate.now())).thenReturn(List.of(a1, a2));
+        LocalDate today = LocalDate.now(FIXED_CLOCK);
+        when(attendances.findByAttendanceDate(today)).thenReturn(List.of(a1, a2));
 
         Map<String, Object> summary = service.getTodayAttendanceSummary();
         assertNotNull(summary);

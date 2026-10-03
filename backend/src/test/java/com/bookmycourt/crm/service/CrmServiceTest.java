@@ -94,4 +94,42 @@ class CrmServiceTest {
         verify(quotes).save(any());
         verify(leads).save(lead);
     }
+
+    @Test
+    void createLead_rejectsDuplicateActiveLead() {
+        com.bookmycourt.crm.dto.CreateLeadRequest req = new com.bookmycourt.crm.dto.CreateLeadRequest(
+                "Jane", "Doe", "jane@example.com", "+919876543210", "WEBSITE", "Tennis", null
+        );
+        Lead existing = new Lead();
+        existing.setStatus("NEW");
+        when(leads.findByEmailIgnoreCase("jane@example.com")).thenReturn(Optional.of(existing));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.bookmycourt.common.error.DomainException.class,
+                () -> service.createLead(req)
+        );
+    }
+
+    @Test
+    void getOverdueFollowUps_returnsOnlyPastOpenFollowUps() {
+        Lead lead = new Lead();
+        lead.setId(UUID.randomUUID());
+
+        com.bookmycourt.crm.entity.FollowUp f1 = new com.bookmycourt.crm.entity.FollowUp();
+        f1.setId(UUID.randomUUID());
+        f1.setLead(lead);
+        f1.setStatus("OPEN");
+        f1.setDueAt(java.time.Instant.now().minusSeconds(3600));
+
+        com.bookmycourt.crm.entity.FollowUp f2 = new com.bookmycourt.crm.entity.FollowUp();
+        f2.setId(UUID.randomUUID());
+        f2.setLead(lead);
+        f2.setStatus("OPEN");
+        f2.setDueAt(java.time.Instant.now().plusSeconds(3600));
+
+        when(followUps.findByStatusOrderByDueAtAsc("OPEN")).thenReturn(List.of(f1, f2));
+
+        List<com.bookmycourt.crm.dto.FollowUpResponse> overdue = service.getOverdueFollowUps();
+        assertEquals(1, overdue.size());
+    }
 }

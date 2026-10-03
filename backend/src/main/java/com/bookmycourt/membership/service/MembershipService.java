@@ -101,7 +101,7 @@ public class MembershipService {
         m.setStatus("PENDING_PAYMENT");
         m.setPaymentStatus("UNPAID");
         m.setPaymentPolicy(req.paymentPolicy() != null ? req.paymentPolicy() : "PAY_NOW");
-        m.setPricePaid(BigDecimal.ZERO);
+        m.setPricePaid(plan.getPrice() != null ? plan.getPrice() : BigDecimal.ZERO);
         memberships.save(m);
 
         eventPublisher.publish(new MembershipPurchased(
@@ -116,21 +116,27 @@ public class MembershipService {
     }
 
     @Transactional
-    public MembershipResponse renew(UUID memberId, UUID planId) {
-        Member member = members.findById(memberId)
-                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Member not found: " + memberId));
+    public MembershipResponse renew(UUID memberOrMembershipId, UUID planId) {
+        Member member;
+        Membership prev = null;
+        Optional<Membership> memOpt = memberships.findById(memberOrMembershipId);
+        if (memOpt.isPresent()) {
+            prev = memOpt.get();
+            member = prev.getMember();
+        } else {
+            member = members.findById(memberOrMembershipId)
+                    .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Member or membership not found: " + memberOrMembershipId));
+            prev = memberships.findByMember_IdOrderByStartDateDesc(member.getId()).stream().findFirst().orElse(null);
+        }
 
         LocalDate today = LocalDate.now(clock);
-        Optional<Membership> latestOpt = memberships.findByMember_IdOrderByStartDateDesc(memberId).stream().findFirst();
-
         Plan plan = planId != null
                 ? plans.findById(planId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Plan not found"))
-                : latestOpt.map(Membership::getPlan).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "No previous plan to renew"));
+                : (prev != null ? prev.getPlan() : plans.findAll().stream().findFirst().orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "No plan to renew")));
 
         LocalDate newStart = today;
         UUID previousId = null;
-        if (latestOpt.isPresent()) {
-            Membership prev = latestOpt.get();
+        if (prev != null) {
             previousId = prev.getId();
             if (prev.getEndDate().isAfter(today) || prev.getEndDate().isEqual(today)) {
                 newStart = prev.getEndDate().plusDays(1);
@@ -145,7 +151,7 @@ public class MembershipService {
         renewal.setEndDate(newStart.plusDays(plan.getValidityDays() - 1L));
         renewal.setStatus("ACTIVE");
         renewal.setPaymentStatus("PAID");
-        renewal.setPricePaid(BigDecimal.ZERO);
+        renewal.setPricePaid(plan.getPrice() != null ? plan.getPrice() : BigDecimal.ZERO);
         memberships.save(renewal);
 
         eventPublisher.publish(new MembershipRenewed(
@@ -172,8 +178,14 @@ public class MembershipService {
         }
 
         int unusedDays = Math.max(0, (int) (old.getEndDate().toEpochDay() - effectiveDate.toEpochDay() + 1));
-        Money oldDailyRate = Money.ofRupees(BigDecimal.valueOf(10)); // Baseline daily unit
-        Money newDailyRate = Money.ofRupees(BigDecimal.valueOf(15));
+        BigDecimal oldDaily = old.getPlan().getValidityDays() > 0 && old.getPlan().getPrice() != null
+                ? old.getPlan().getPrice().divide(BigDecimal.valueOf(old.getPlan().getValidityDays()), 2, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        BigDecimal newDaily = newPlan.getValidityDays() > 0 && newPlan.getPrice() != null
+                ? newPlan.getPrice().divide(BigDecimal.valueOf(newPlan.getValidityDays()), 2, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        Money oldDailyRate = Money.ofRupees(oldDaily);
+        Money newDailyRate = Money.ofRupees(newDaily);
         var proration = ProrationCalculator.compute(unusedDays, oldDailyRate, newDailyRate);
 
         old.setEndDate(effectiveDate.minusDays(1));
@@ -186,6 +198,7 @@ public class MembershipService {
         newMembership.setStartDate(effectiveDate);
         newMembership.setEndDate(effectiveDate.plusDays(newPlan.getValidityDays() - 1L));
         newMembership.setStatus("ACTIVE");
+        newMembership.setPaymentStatus("PAID");
         newMembership.setProrationNote(proration.note());
         newMembership.setPricePaid(proration.difference().isPositive() ? proration.difference().toRupees() : BigDecimal.ZERO);
         memberships.save(newMembership);

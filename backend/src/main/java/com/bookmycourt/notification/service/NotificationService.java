@@ -66,7 +66,7 @@ public class NotificationService {
                 d.setDeliveredAt(Instant.now());
             } else {
                 d.setStatus("SENT");
-                d.setDeliveredAt(Instant.now());
+                d.setDeliveredAt(null);
             }
             deliveryList.add(d);
         }

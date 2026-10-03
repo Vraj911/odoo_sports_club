@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -55,6 +56,21 @@ public class Invoice extends BaseEntity {
 
     @Column(nullable = false, length = 3)
     private String currency = "INR";
+
+    @Column(name = "cgst", nullable = false)
+    private BigDecimal cgst = BigDecimal.ZERO;
+
+    @Column(name = "sgst", nullable = false)
+    private BigDecimal sgst = BigDecimal.ZERO;
+
+    @Column(name = "igst", nullable = false)
+    private BigDecimal igst = BigDecimal.ZERO;
+
+    @Column(name = "credit_note_of")
+    private UUID creditNoteOf;
+
+    @Column(nullable = false, length = 20)
+    private String kind = "INVOICE";
 
     private String notes;
 

@@ -20,6 +20,8 @@ import com.bookmycourt.bar.repository.BarOrderLineRepository;
 import com.bookmycourt.bar.repository.BarOrderRepository;
 import com.bookmycourt.bar.repository.BarTableRepository;
 import com.bookmycourt.bar.repository.MenuItemRepository;
+import com.bookmycourt.common.error.DomainException;
+import com.bookmycourt.common.error.ErrorCode;
 import com.bookmycourt.common.exception.NotFoundException;
 import com.bookmycourt.membership.entity.AppUser;
 import com.bookmycourt.membership.entity.Member;
@@ -151,6 +153,9 @@ public class BarService {
             for (BarOrderLineRequest item : request.items()) {
                 MenuItem mi = menuItems.findById(item.menuItemId())
                         .orElseThrow(() -> new NotFoundException("Menu item not found: " + item.menuItemId()));
+                if (!mi.isAvailable()) {
+                    throw new DomainException(ErrorCode.CONFLICT, "Menu item " + mi.getName() + " is currently unavailable");
+                }
 
                 BigDecimal lineSubtotal = mi.getPrice().multiply(item.quantity());
                 BigDecimal lineDiscount = lineSubtotal.multiply(memberDiscountPercent)
@@ -342,6 +347,10 @@ public class BarService {
         BarTable oldTable = order.getTable();
         BarTable newTable = tables.findById(newTableId)
                 .orElseThrow(() -> new NotFoundException("New table not found: " + newTableId));
+
+        if (!newTable.getId().equals(oldTable != null ? oldTable.getId() : null) && "OCCUPIED".equalsIgnoreCase(newTable.getStatus())) {
+            throw new DomainException(ErrorCode.CONFLICT, "Destination table " + newTable.getTableNumber() + " is already occupied");
+        }
 
         order.setTable(newTable);
         newTable.setStatus("OCCUPIED");

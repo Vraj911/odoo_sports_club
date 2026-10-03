@@ -1,5 +1,8 @@
 package com.bookmycourt.hr.service;
 
+import com.bookmycourt.common.time.ClubTime;
+import com.bookmycourt.common.error.DomainException;
+import com.bookmycourt.common.error.ErrorCode;
 import com.bookmycourt.common.exception.NotFoundException;
 import com.bookmycourt.hr.dto.AttendanceResponse;
 import com.bookmycourt.hr.dto.CreateEmployeeRequest;
@@ -16,9 +19,16 @@ import com.bookmycourt.membership.repository.AppUserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class HrService {
@@ -32,6 +42,30 @@ public class HrService {
     private final com.bookmycourt.hr.repository.ShiftScheduleRepository shifts;
     private final com.bookmycourt.hr.repository.PayrollRunRepository payrollRuns;
     private final com.bookmycourt.hr.repository.PayslipRepository payslips;
+    private final Clock clock;
+
+    public HrService(
+            EmployeeRepository employees,
+            AttendanceRepository attendances,
+            AppUserRepository users,
+            HrMapper mapper,
+            com.bookmycourt.hr.repository.LeaveTypeRepository leaveTypes,
+            com.bookmycourt.hr.repository.LeaveRequestRepository leaveRequests,
+            com.bookmycourt.hr.repository.ShiftScheduleRepository shifts,
+            com.bookmycourt.hr.repository.PayrollRunRepository payrollRuns,
+            com.bookmycourt.hr.repository.PayslipRepository payslips,
+            Clock clock) {
+        this.employees = employees;
+        this.attendances = attendances;
+        this.users = users;
+        this.mapper = mapper;
+        this.leaveTypes = leaveTypes;
+        this.leaveRequests = leaveRequests;
+        this.shifts = shifts;
+        this.payrollRuns = payrollRuns;
+        this.payslips = payslips;
+        this.clock = clock;
+    }
 
     public HrService(
             EmployeeRepository employees,
@@ -43,15 +77,7 @@ public class HrService {
             com.bookmycourt.hr.repository.ShiftScheduleRepository shifts,
             com.bookmycourt.hr.repository.PayrollRunRepository payrollRuns,
             com.bookmycourt.hr.repository.PayslipRepository payslips) {
-        this.employees = employees;
-        this.attendances = attendances;
-        this.users = users;
-        this.mapper = mapper;
-        this.leaveTypes = leaveTypes;
-        this.leaveRequests = leaveRequests;
-        this.shifts = shifts;
-        this.payrollRuns = payrollRuns;
-        this.payslips = payslips;
+        this(employees, attendances, users, mapper, leaveTypes, leaveRequests, shifts, payrollRuns, payslips, Clock.systemDefaultZone());
     }
 
     @Transactional
@@ -63,9 +89,17 @@ public class HrService {
             throw new IllegalArgumentException("User is already registered as an employee");
         }
 
+        String maxNum = employees.findMaxEmployeeNumber();
+        int nextId = 1;
+        if (maxNum != null && maxNum.startsWith("EMP-")) {
+            try {
+                nextId = Integer.parseInt(maxNum.substring(4)) + 1;
+            } catch (NumberFormatException ignored) {}
+        }
+
         Employee emp = new Employee();
         emp.setUser(user);
-        emp.setEmployeeNumber("EMP-" + String.format("%04d", employees.count() + 1));
+        emp.setEmployeeNumber(String.format("EMP-%04d", nextId));
         emp.setDepartment(request.department());
         emp.setJobTitle(request.jobTitle());
         emp.setJoiningDate(request.joiningDate());
@@ -105,6 +139,14 @@ public class HrService {
 
     @Transactional
     public AttendanceResponse recordAttendance(RecordAttendanceRequest request) {
+        if (request.checkInAt() != null && request.checkOutAt() != null && request.checkOutAt().isBefore(request.checkInAt())) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Check-out time cannot be before check-in time");
+        }
+        LocalDate today = LocalDate.now(clock.withZone(ClubTime.IST));
+        if (request.attendanceDate().isAfter(today)) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Attendance date cannot be in the future");
+        }
+
         Employee emp = employees.findById(request.employeeId())
                 .orElseThrow(() -> new NotFoundException("Employee not found"));
 
@@ -144,7 +186,7 @@ public class HrService {
 
     @Transactional(readOnly = true)
     public java.util.Map<String, Object> getTodayAttendanceSummary() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock.withZone(ClubTime.IST));
         List<Attendance> todayRecords = attendances.findByAttendanceDate(today);
         long totalEmp = employees.findByEmploymentStatus("ACTIVE").size();
         long present = todayRecords.stream().filter(a -> "PRESENT".equalsIgnoreCase(a.getStatus())).count();
@@ -167,13 +209,37 @@ public class HrService {
 
     @Transactional
     public com.bookmycourt.hr.dto.LeaveRequestResponse applyLeave(com.bookmycourt.hr.dto.ApplyLeaveRequest request) {
+        if (request.toDate().isBefore(request.fromDate())) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "toDate cannot be before fromDate");
+        }
+
         Employee emp = employees.findById(request.employeeId())
                 .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
         com.bookmycourt.hr.entity.LeaveType lt = leaveTypes.findById(request.leaveTypeId())
                 .orElseThrow(() -> new NotFoundException("Leave type not found: " + request.leaveTypeId()));
 
+        // Check overlapping leave requests
+        List<com.bookmycourt.hr.entity.LeaveRequest> existingLeaves = leaveRequests.findByEmployee_IdAndStatusIn(
+                emp.getId(), List.of("PENDING", "APPROVED")
+        );
+        for (com.bookmycourt.hr.entity.LeaveRequest el : existingLeaves) {
+            if (!request.fromDate().isAfter(el.getToDate()) && !request.toDate().isBefore(el.getFromDate())) {
+                throw new DomainException(ErrorCode.CONFLICT, "Employee already has a leave request for this period (" + el.getFromDate() + " to " + el.getToDate() + ")");
+            }
+        }
+
         int days = request.days() > 0 ? request.days() : (int) java.time.temporal.ChronoUnit.DAYS.between(request.fromDate(), request.toDate()) + 1;
         if (days <= 0) days = 1;
+
+        // Check yearly balance for this leave type
+        int leaveYear = request.fromDate().getYear();
+        int approvedDays = existingLeaves.stream()
+                .filter(l -> l.getLeaveType().getId().equals(lt.getId()) && "APPROVED".equalsIgnoreCase(l.getStatus()) && l.getFromDate().getYear() == leaveYear)
+                .mapToInt(com.bookmycourt.hr.entity.LeaveRequest::getDays)
+                .sum();
+        if (approvedDays + days > lt.getYearlyDays()) {
+            throw new DomainException(ErrorCode.LEAVE_BALANCE, "Insufficient leave balance for " + lt.getName() + " (yearly limit: " + lt.getYearlyDays() + ", used: " + approvedDays + ")");
+        }
 
         com.bookmycourt.hr.entity.LeaveRequest lr = new com.bookmycourt.hr.entity.LeaveRequest();
         lr.setEmployee(emp);
@@ -200,7 +266,14 @@ public class HrService {
     public com.bookmycourt.hr.dto.LeaveRequestResponse updateLeaveStatus(UUID requestId, String status, UUID approvedByUserId) {
         com.bookmycourt.hr.entity.LeaveRequest lr = leaveRequests.findById(requestId)
                 .orElseThrow(() -> new NotFoundException("Leave request not found: " + requestId));
-        lr.setStatus(status.toUpperCase());
+        String newStatus = status.toUpperCase();
+        if (!List.of("APPROVED", "REJECTED", "CANCELLED").contains(newStatus)) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Invalid leave status: " + status);
+        }
+        if ("APPROVED".equalsIgnoreCase(lr.getStatus()) && "APPROVED".equalsIgnoreCase(newStatus)) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Leave request is already approved");
+        }
+        lr.setStatus(newStatus);
         if (approvedByUserId != null) {
             users.findById(approvedByUserId).ifPresent(lr::setApprovedBy);
         }
@@ -247,10 +320,9 @@ public class HrService {
     @Transactional
     public com.bookmycourt.hr.dto.PayrollRunResponse generatePayrollRun(String month) {
         com.bookmycourt.hr.entity.PayrollRun existingRun = payrollRuns.findByMonth(month).orElse(null);
-        if (existingRun != null && ("FINALISED".equalsIgnoreCase(existingRun.getStatus())
-                || !payslips.findByPayrollRun_Id(existingRun.getId()).isEmpty())) {
-            throw new com.bookmycourt.common.error.DomainException(
-                    com.bookmycourt.common.error.ErrorCode.PAYROLL_FINALISED,
+        if (existingRun != null && "FINALISED".equalsIgnoreCase(existingRun.getStatus())) {
+            throw new DomainException(
+                    ErrorCode.PAYROLL_FINALISED,
                     "Payroll for " + month + " has already been generated");
         }
 
@@ -260,18 +332,41 @@ public class HrService {
             newRun.setMonth(month);
             newRun.setStatus("DRAFT");
             run = newRun;
+        } else {
+            // Re-running a draft month: remove previous payslips to prevent duplicate constraints
+            List<com.bookmycourt.hr.entity.Payslip> existingSlips = payslips.findByPayrollRun_Id(run.getId());
+            if (!existingSlips.isEmpty()) {
+                payslips.deleteAll(existingSlips);
+            }
         }
 
         List<Employee> activeEmps = employees.findByEmploymentStatus("ACTIVE");
-        java.math.BigDecimal totalGross = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal totalDeductions = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal totalNet = java.math.BigDecimal.ZERO;
+        BigDecimal totalGross = BigDecimal.ZERO;
+        BigDecimal totalDeductions = BigDecimal.ZERO;
+        BigDecimal totalNet = BigDecimal.ZERO;
+
+        YearMonth ym = YearMonth.parse(month);
+        LocalDate mStart = ym.atDay(1);
+        LocalDate mEnd = ym.atEndOfMonth();
 
         List<com.bookmycourt.hr.entity.Payslip> generatedPayslips = new java.util.ArrayList<>();
         for (Employee emp : activeEmps) {
-            java.math.BigDecimal baseSalary = java.math.BigDecimal.valueOf(25000);
-            java.math.BigDecimal deductions = java.math.BigDecimal.valueOf(1000);
-            java.math.BigDecimal net = baseSalary.subtract(deductions);
+            BigDecimal baseSalary = parseSalaryField(emp.getSalaryStructure(), "basic",
+                    parseSalaryField(emp.getSalaryStructure(), "baseSalary",
+                            parseSalaryField(emp.getSalaryStructure(), "gross", BigDecimal.valueOf(25000))));
+            BigDecimal deductions = parseSalaryField(emp.getSalaryStructure(), "deductions", BigDecimal.valueOf(1000));
+
+            // Factor in approved unpaid leaves during the month
+            long unpaidDays = leaveRequests.findByEmployee_IdAndStatusIn(emp.getId(), List.of("APPROVED")).stream()
+                    .filter(l -> !l.getLeaveType().isPaid() && !l.getFromDate().isAfter(mEnd) && !l.getToDate().isBefore(mStart))
+                    .mapToLong(com.bookmycourt.hr.entity.LeaveRequest::getDays)
+                    .sum();
+            if (unpaidDays > 0) {
+                BigDecimal dailyRate = baseSalary.divide(BigDecimal.valueOf(ym.lengthOfMonth()), 2, RoundingMode.HALF_UP);
+                deductions = deductions.add(dailyRate.multiply(BigDecimal.valueOf(unpaidDays)));
+            }
+
+            BigDecimal net = baseSalary.subtract(deductions).max(BigDecimal.ZERO);
 
             com.bookmycourt.hr.entity.Payslip slip = new com.bookmycourt.hr.entity.Payslip();
             slip.setPayrollRun(run);
@@ -291,7 +386,7 @@ public class HrService {
         run.setTotalDeductions(totalDeductions);
         run.setTotalNet(totalNet);
         run.setStatus("FINALISED");
-        run.setFinalisedAt(java.time.OffsetDateTime.now());
+        run.setFinalisedAt(OffsetDateTime.now(clock));
         run.setPayslips(generatedPayslips);
         payrollRuns.save(run);
 
@@ -305,6 +400,18 @@ public class HrService {
                 run.getFinalisedAt(),
                 activeEmps.size()
         );
+    }
+
+    private BigDecimal parseSalaryField(String json, String field, BigDecimal fallback) {
+        if (json == null || json.isBlank() || json.equals("{}")) return fallback;
+        try {
+            Pattern p = Pattern.compile("\"" + field + "\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)");
+            Matcher m = p.matcher(json);
+            if (m.find()) {
+                return new BigDecimal(m.group(1));
+            }
+        } catch (Exception ignored) {}
+        return fallback;
     }
 
     @Transactional(readOnly = true)
@@ -322,26 +429,32 @@ public class HrService {
     }
 
     @Transactional(readOnly = true)
-    public List<com.bookmycourt.hr.dto.PayslipResponse> listPayslips(UUID runId, UUID employeeId) {
+    public com.bookmycourt.hr.dto.PayrollRunResponse getPayrollRun(UUID id) {
+        com.bookmycourt.hr.entity.PayrollRun r = payrollRuns.findById(id)
+                .orElseThrow(() -> new NotFoundException("Payroll run not found: " + id));
+        return new com.bookmycourt.hr.dto.PayrollRunResponse(
+                r.getId(),
+                r.getMonth(),
+                r.getStatus(),
+                r.getTotalGross(),
+                r.getTotalDeductions(),
+                r.getTotalNet(),
+                r.getFinalisedAt(),
+                r.getPayslips() != null ? r.getPayslips().size() : 0
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.bookmycourt.hr.dto.PayslipResponse> listPayslips(UUID payrollRunId, UUID employeeId) {
         List<com.bookmycourt.hr.entity.Payslip> list;
-        if (runId != null) {
-            list = payslips.findByPayrollRun_Id(runId);
+        if (payrollRunId != null) {
+            list = payslips.findByPayrollRun_Id(payrollRunId);
         } else if (employeeId != null) {
             list = payslips.findByEmployee_IdOrderByCreatedAtDesc(employeeId);
         } else {
             list = payslips.findAll();
         }
-        return list.stream().map(p -> new com.bookmycourt.hr.dto.PayslipResponse(
-                p.getId(),
-                p.getPayrollRun().getId(),
-                p.getEmployee().getId(),
-                p.getEmployee().getUser() != null ? p.getEmployee().getUser().getFirstName() + " " + p.getEmployee().getUser().getLastName() : "Employee",
-                p.getEmployee().getJobTitle(),
-                p.getGrossSalary(),
-                p.getDeductions(),
-                p.getNetSalary(),
-                p.getStatus()
-        )).toList();
+        return list.stream().map(this::toPayslipResponse).toList();
     }
 
     private com.bookmycourt.hr.dto.LeaveRequestResponse toLeaveResponse(com.bookmycourt.hr.entity.LeaveRequest lr) {
@@ -375,6 +488,23 @@ public class HrService {
                 s.getStartTime(),
                 s.getEndTime(),
                 s.getRoleAssigned()
+        );
+    }
+
+    private com.bookmycourt.hr.dto.PayslipResponse toPayslipResponse(com.bookmycourt.hr.entity.Payslip p) {
+        String empName = p.getEmployee() != null && p.getEmployee().getUser() != null
+                ? p.getEmployee().getUser().getFirstName() + " " + p.getEmployee().getUser().getLastName()
+                : "Employee";
+        return new com.bookmycourt.hr.dto.PayslipResponse(
+                p.getId(),
+                p.getPayrollRun().getId(),
+                p.getEmployee().getId(),
+                empName,
+                p.getEmployee() != null ? p.getEmployee().getJobTitle() : null,
+                p.getGrossSalary(),
+                p.getDeductions(),
+                p.getNetSalary(),
+                p.getStatus()
         );
     }
 }

@@ -60,4 +60,10 @@ public class NumberSeriesService {
         long num = nextNumber("CREDITNOTE", fy);
         return String.format("CN/%s/%06d", fy, num);
     }
+
+    public String nextExpenseNumber() {
+        String fy = currentFinancialYear();
+        long num = nextNumber("EXPENSE", fy);
+        return String.format("EXP/%s/%06d", fy, num);
+    }
 }

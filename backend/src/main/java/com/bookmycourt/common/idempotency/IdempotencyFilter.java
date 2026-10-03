@@ -58,11 +58,10 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         }
 
         idemKey = idemKey.trim();
-        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request, 1024 * 1024);
+        RepeatableRequestWrapper wrappedRequest = new RepeatableRequestWrapper(request);
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
 
-        // Force reading input stream so content caching wrapper buffers body
-        byte[] requestBody = wrappedRequest.getInputStream().readAllBytes();
+        byte[] requestBody = wrappedRequest.getBody();
         String requestHash = IdempotencyService.computeHash(requestBody);
 
         String method = request.getMethod().toUpperCase();

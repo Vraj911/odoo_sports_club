@@ -1,5 +1,9 @@
 package com.bookmycourt.finance.service;
 
+import com.bookmycourt.admin.service.ClubQueryService;
+import com.bookmycourt.common.time.ClubTime;
+import com.bookmycourt.common.error.DomainException;
+import com.bookmycourt.common.error.ErrorCode;
 import com.bookmycourt.common.exception.NotFoundException;
 import com.bookmycourt.finance.dto.CreateInvoiceRequest;
 import com.bookmycourt.finance.dto.ExpenseRequest;
@@ -25,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -41,6 +46,9 @@ public class FinanceService {
     private final PaymentRepository payments;
     private final FinanceMapper mapper;
     private final com.bookmycourt.common.sequence.NumberSeriesService numberSeries;
+    private final LedgerService ledgerService;
+    private final Clock clock;
+    private final ClubQueryService clubQueryService;
 
     public FinanceService(
             InvoiceRepository invoices,
@@ -49,7 +57,10 @@ public class FinanceService {
             AppUserRepository users,
             PaymentRepository payments,
             FinanceMapper mapper,
-            com.bookmycourt.common.sequence.NumberSeriesService numberSeries) {
+            com.bookmycourt.common.sequence.NumberSeriesService numberSeries,
+            LedgerService ledgerService,
+            Clock clock,
+            ClubQueryService clubQueryService) {
         this.invoices = invoices;
         this.expenses = expenses;
         this.members = members;
@@ -57,6 +68,9 @@ public class FinanceService {
         this.payments = payments;
         this.mapper = mapper;
         this.numberSeries = numberSeries;
+        this.ledgerService = ledgerService;
+        this.clock = clock;
+        this.clubQueryService = clubQueryService;
     }
 
     @Transactional
@@ -67,13 +81,22 @@ public class FinanceService {
                     .orElseThrow(() -> new NotFoundException("Member not found"));
         }
 
+        LocalDate today = LocalDate.now(clock.withZone(ClubTime.IST));
         Invoice invoice = new Invoice();
         invoice.setInvoiceNumber(numberSeries.nextInvoiceNumber());
         invoice.setMember(member);
         invoice.setStatus("DRAFT");
-        invoice.setIssueDate(LocalDate.now());
-        invoice.setDueDate(request.dueDate() != null ? request.dueDate() : LocalDate.now().plusDays(15));
-        invoice.setCurrency("INR");
+        invoice.setIssueDate(today);
+        invoice.setDueDate(request.dueDate() != null ? request.dueDate() : today.plusDays(15));
+        
+        String currency = "INR";
+        try {
+            var profile = clubQueryService.current();
+            if (profile != null && profile.currency() != null) {
+                currency = profile.currency();
+            }
+        } catch (Exception ignored) {}
+        invoice.setCurrency(currency);
         invoice.setNotes(request.notes());
 
         if (request.createdByUserId() != null) {
@@ -110,8 +133,15 @@ public class FinanceService {
             taxTotal = taxTotal.add(taxAmount);
         }
 
+        BigDecimal cgst = taxTotal.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+        BigDecimal sgst = taxTotal.subtract(cgst);
+        BigDecimal igst = BigDecimal.ZERO;
+
         invoice.setSubtotal(subtotal);
         invoice.setTaxTotal(taxTotal);
+        invoice.setCgst(cgst);
+        invoice.setSgst(sgst);
+        invoice.setIgst(igst);
         invoice.setTotal(subtotal.add(taxTotal));
         invoice.setAmountPaid(BigDecimal.ZERO);
         invoice.setLines(lines);
@@ -124,7 +154,15 @@ public class FinanceService {
     public InvoiceResponse updateStatus(UUID invoiceId, UpdateInvoiceStatusRequest request) {
         Invoice invoice = invoices.findById(invoiceId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found"));
-        invoice.setStatus(request.status());
+        String curStatus = invoice.getStatus();
+        String nextStatus = request.status().toUpperCase();
+        if ("PAID".equalsIgnoreCase(curStatus) && !"VOID".equalsIgnoreCase(nextStatus) && !"CANCELLED".equalsIgnoreCase(nextStatus)) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Cannot change status of a PAID invoice to " + nextStatus);
+        }
+        if ("VOID".equalsIgnoreCase(curStatus) || "CANCELLED".equalsIgnoreCase(curStatus)) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Cannot update a VOID or CANCELLED invoice");
+        }
+        invoice.setStatus(nextStatus);
         invoices.save(invoice);
         return mapper.toResponse(invoice);
     }
@@ -134,11 +172,12 @@ public class FinanceService {
         Invoice invoice = invoices.findById(invoiceId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found"));
 
-        BigDecimal newPaid = invoice.getAmountPaid().add(request.amount());
-        if (newPaid.compareTo(invoice.getTotal()) > 0) {
-            throw new IllegalArgumentException("Payment amount exceeds outstanding balance");
+        BigDecimal outstanding = invoice.getTotal().subtract(invoice.getAmountPaid());
+        if (request.amount().compareTo(outstanding) > 0) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Payment amount exceeds outstanding balance of " + outstanding);
         }
 
+        BigDecimal newPaid = invoice.getAmountPaid().add(request.amount());
         invoice.setAmountPaid(newPaid);
         if (newPaid.compareTo(invoice.getTotal()) >= 0) {
             invoice.setStatus("PAID");
@@ -147,20 +186,66 @@ public class FinanceService {
         }
         invoices.save(invoice);
 
-        // Record in payment ledger
+        // Record in payment table
         Payment p = new Payment();
         p.setMember(invoice.getMember());
         p.setInvoiceId(invoice.getId());
         p.setSourceType("INVOICE");
         p.setSourceId(invoice.getId());
         p.setAmount(request.amount());
-        p.setMethod(request.method());
+        p.setMethod(request.method().toUpperCase());
         p.setStatus("PAID");
         p.setPaidAt(Instant.now());
         p.setReference(request.reference());
         payments.save(p);
 
+        // Record double-entry ledger posting
+        ledgerService.postPayment(
+                "INVOICE",
+                invoice.getId(),
+                "PAYMENT",
+                "Payment for Invoice " + invoice.getInvoiceNumber(),
+                invoice.getMember(),
+                "INVOICE",
+                request.method().toUpperCase(),
+                request.amount(),
+                false,
+                null
+        );
+
         return mapper.toResponse(invoice);
+    }
+
+    @Transactional
+    public InvoiceResponse issueCreditNote(UUID invoiceId, String reason) {
+        Invoice original = invoices.findById(invoiceId)
+                .orElseThrow(() -> new NotFoundException("Invoice not found: " + invoiceId));
+        if (!"PAID".equalsIgnoreCase(original.getStatus()) && !"PARTIAL".equalsIgnoreCase(original.getStatus())) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Credit notes can only be issued against PAID or PARTIAL invoices");
+        }
+        Invoice creditNote = new Invoice();
+        creditNote.setInvoiceNumber("CN-" + numberSeries.nextInvoiceNumber());
+        creditNote.setMember(original.getMember());
+        creditNote.setStatus("ISSUED");
+        creditNote.setIssueDate(LocalDate.now(clock.withZone(ClubTime.IST)));
+        creditNote.setDueDate(LocalDate.now(clock.withZone(ClubTime.IST)));
+        creditNote.setCurrency(original.getCurrency());
+        creditNote.setNotes("Credit Note for " + original.getInvoiceNumber() + ": " + (reason != null ? reason : ""));
+        creditNote.setCreditNoteOf(original.getId());
+        creditNote.setKind("CREDIT_NOTE");
+        creditNote.setSubtotal(original.getSubtotal().negate());
+        creditNote.setTaxTotal(original.getTaxTotal().negate());
+        creditNote.setCgst(original.getCgst() != null ? original.getCgst().negate() : BigDecimal.ZERO);
+        creditNote.setSgst(original.getSgst() != null ? original.getSgst().negate() : BigDecimal.ZERO);
+        creditNote.setIgst(original.getIgst() != null ? original.getIgst().negate() : BigDecimal.ZERO);
+        creditNote.setTotal(original.getTotal().negate());
+        creditNote.setAmountPaid(BigDecimal.ZERO);
+        invoices.save(creditNote);
+
+        original.setStatus("CANCELLED");
+        invoices.save(original);
+
+        return mapper.toResponse(creditNote);
     }
 
     @Transactional(readOnly = true)
@@ -182,20 +267,22 @@ public class FinanceService {
 
     @Transactional
     public ExpenseResponse recordExpense(ExpenseRequest request) {
-        Expense expense = new Expense();
-        expense.setExpenseNumber("EXP-" + System.currentTimeMillis());
-        expense.setExpenseType(request.expenseType());
-        expense.setDescription(request.description());
-        expense.setAmount(request.amount());
-        expense.setPaymentMethod(request.paymentMethod());
-        expense.setIncurredAt(request.incurredAt() != null ? request.incurredAt() : Instant.now());
+        Expense exp = new Expense();
+        exp.setExpenseNumber(numberSeries.nextExpenseNumber());
+        exp.setExpenseType(request.expenseType());
+        exp.setDescription(request.description());
+        exp.setAmount(request.amount());
+        exp.setPaymentMethod(request.paymentMethod());
+        exp.setIncurredAt(request.incurredAt() != null ? request.incurredAt() : Instant.now(clock));
+        exp.setNotes(request.notes());
+
         if (request.recordedByUserId() != null) {
             AppUser u = users.findById(request.recordedByUserId()).orElse(null);
-            expense.setRecordedBy(u);
+            exp.setRecordedBy(u);
         }
-        expense.setNotes(request.notes());
-        expenses.save(expense);
-        return mapper.toResponse(expense);
+
+        expenses.save(exp);
+        return mapper.toResponse(exp);
     }
 
     @Transactional(readOnly = true)
@@ -203,6 +290,6 @@ public class FinanceService {
         if (expenseType != null && !expenseType.isBlank()) {
             return expenses.findByExpenseType(expenseType).stream().map(mapper::toResponse).toList();
         }
-        return expenses.findByOrderByIncurredAtDesc().stream().map(mapper::toResponse).toList();
+        return expenses.findAll().stream().map(mapper::toResponse).toList();
     }
 }

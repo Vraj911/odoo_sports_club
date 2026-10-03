@@ -1,5 +1,7 @@
 package com.bookmycourt.shop.service;
 
+import com.bookmycourt.common.error.DomainException;
+import com.bookmycourt.common.error.ErrorCode;
 import com.bookmycourt.common.exception.NotFoundException;
 import com.bookmycourt.membership.entity.AppUser;
 import com.bookmycourt.membership.entity.Member;
@@ -114,7 +116,7 @@ public class ShopService {
         if (request.attributes() != null) pv.setAttributes(request.attributes());
         pv.setPrice(request.price());
         pv.setTaxRate(request.taxRate() != null ? request.taxRate() : product.getTaxRate());
-        pv.setOnHand(request.initialStock() != null ? request.initialStock() : 0);
+        pv.setOnHand(0);
         pv.setReserved(0);
         pv.setReorderLevel(request.reorderLevel() != null ? request.reorderLevel() : 0);
         pv.setActive(true);
@@ -128,6 +130,9 @@ public class ShopService {
             sm.setSourceType("ADJUSTMENT");
             sm.setNotes("Initial stock setup");
             stockMovements.save(sm);
+
+            pv.setOnHand(request.initialStock());
+            variants.save(pv);
         }
 
         return mapper.toResponse(pv);
@@ -220,11 +225,19 @@ public class ShopService {
         return mapper.toResponse(order);
     }
 
+    private static final java.util.Set<String> ALLOWED_SHOP_STATUSES = java.util.Set.of(
+            "PLACED", "PAID", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "COLLECTED", "DELIVERED", "RETURNED", "FAILED", "CANCELLED"
+    );
+
     @Transactional
     public ShopOrderResponse updateOrderStatus(UUID orderId, UpdateShopOrderStatusRequest request) {
         ShopOrder order = orders.findById(orderId)
                 .orElseThrow(() -> new NotFoundException("Shop order not found"));
-        order.setStatus(request.status());
+        String newStatus = request.status().toUpperCase();
+        if (!ALLOWED_SHOP_STATUSES.contains(newStatus)) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Invalid shop order status: " + request.status());
+        }
+        order.setStatus(newStatus);
         orders.save(order);
         return mapper.toResponse(order);
     }
@@ -305,19 +318,28 @@ public class ShopService {
         if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
             return mapper.toResponse(order);
         }
+        String oldStatus = order.getStatus();
         order.setStatus("CANCELLED");
         orders.save(order);
 
-        for (ShopOrderLine line : order.getLines()) {
-            StockMovement sm = new StockMovement();
-            sm.setProductVariant(line.getProductVariant());
-            sm.setShopOrderLine(line);
-            sm.setMovementType("RETURN");
-            sm.setQuantity(line.getQuantity());
-            sm.setSourceType("RETURN");
-            sm.setSourceId(order.getId());
-            sm.setNotes("Order cancelled: " + (reason != null ? reason : ""));
-            stockMovements.save(sm);
+        if (!"FAILED".equalsIgnoreCase(oldStatus) && !"RETURNED".equalsIgnoreCase(oldStatus)) {
+            for (ShopOrderLine line : order.getLines()) {
+                StockMovement sm = new StockMovement();
+                sm.setProductVariant(line.getProductVariant());
+                sm.setShopOrderLine(line);
+                sm.setMovementType("RETURN");
+                sm.setQuantity(line.getQuantity());
+                sm.setSourceType("RETURN");
+                sm.setSourceId(order.getId());
+                sm.setNotes("Order cancelled: " + (reason != null ? reason : ""));
+                stockMovements.save(sm);
+
+                ProductVariant pv = line.getProductVariant();
+                if (pv != null) {
+                    pv.setOnHand(pv.getOnHand() + line.getQuantity());
+                    variants.save(pv);
+                }
+            }
         }
 
         return mapper.toResponse(order);

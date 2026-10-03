@@ -10,5 +10,6 @@ import java.util.UUID;
 @Repository
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID> {
     List<LeaveRequest> findByEmployee_IdOrderByFromDateDesc(UUID employeeId);
+    List<LeaveRequest> findByEmployee_IdAndStatusIn(UUID employeeId, List<String> statuses);
     List<LeaveRequest> findByStatusOrderByFromDateDesc(String status);
 }

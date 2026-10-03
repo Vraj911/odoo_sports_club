@@ -3,6 +3,7 @@ package com.bookmycourt.social.service;
 import com.bookmycourt.admin.repository.ClubSettingRepository;
 import com.bookmycourt.booking.engine.CourtDayCalendar;
 import com.bookmycourt.booking.engine.SlotMask;
+import com.bookmycourt.booking.repository.BookingRepository;
 import com.bookmycourt.booking.service.CalendarRegistry;
 import com.bookmycourt.booking.service.OccupancyService;
 import com.bookmycourt.common.actor.ActorHolder;
@@ -69,6 +70,7 @@ public class SocialService {
     private final ClubSettingRepository clubSettingRepository;
     private final DomainEventPublisher publisher;
     private final Clock clock;
+    private final BookingRepository bookings;
 
     public SocialService(
             SocialSessionRepository sessions,
@@ -85,7 +87,8 @@ public class SocialService {
             MembershipService membershipService,
             ClubSettingRepository clubSettingRepository,
             DomainEventPublisher publisher,
-            Clock clock
+            Clock clock,
+            BookingRepository bookings
     ) {
         this.sessions = sessions;
         this.participants = participants;
@@ -102,6 +105,7 @@ public class SocialService {
         this.clubSettingRepository = clubSettingRepository;
         this.publisher = publisher;
         this.clock = clock;
+        this.bookings = bookings;
     }
 
     public SocialSessionResponse createSession(CreateSocialSessionRequest request) {
@@ -179,12 +183,13 @@ public class SocialService {
                     throw new DomainException(ErrorCode.DUPLICATE, "Member already registered for this session");
                 }
 
-                // Daily cap check
+                // Daily cap check (combines social sessions and court bookings)
                 int cap = getMemberCap(request.memberId(), day);
                 Instant dayStart = day.atStartOfDay(ClubTime.IST).toInstant();
                 Instant dayEnd = day.plusDays(1).atStartOfDay(ClubTime.IST).toInstant();
                 int joinedSocials = participants.countJoinedForMemberDay(request.memberId(), dayStart, dayEnd);
-                if (joinedSocials >= cap) {
+                int activeBookings = bookings.countActiveForMemberDay(request.memberId(), day, List.of("PENDING", "CONFIRMED", "CHECKED_IN", "COMPLETED"));
+                if (joinedSocials + activeBookings >= cap) {
                     throw new DomainException(ErrorCode.CAP_EXCEEDED, "Member daily booking cap exceeded");
                 }
             }
@@ -198,7 +203,9 @@ public class SocialService {
                         SocialParticipant p = new SocialParticipant();
                         p.setSession(session);
                         if (request.memberId() != null) {
-                            members.findById(request.memberId()).ifPresent(p::setMember);
+                            Member m = members.findById(request.memberId())
+                                    .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Member not found: " + request.memberId()));
+                            p.setMember(m);
                         }
                         p.setGuestName(request.guestName());
                         p.setGuestPhone(request.guestPhone());
@@ -228,6 +235,15 @@ public class SocialService {
         SocialParticipant p = participants.findBySession_IdAndMember_Id(sessionId, memberId)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Participant record not found"));
 
+        cancelParticipant(p);
+    }
+
+    public void cancelParticipant(SocialParticipant p) {
+        SocialSession session = p.getSession();
+        UUID sessionId = session.getId();
+        String oldStatus = p.getStatus();
+        UUID memberId = p.getMember() != null ? p.getMember().getId() : null;
+
         Keys.SessionKey sessionKey = new Keys.SessionKey(sessionId);
 
         guard.run(List.of(sessionKey), () -> new Guard.Decision<>(
@@ -239,8 +255,10 @@ public class SocialService {
                 () -> publisher.publish(new SocialEvents.SocialParticipantLeft(UUID.randomUUID(), clock.instant(), sessionId, memberId))
         ));
 
-        // Promotion pipeline: try to promote first waitlisted member
-        promoteNextWaitlisted(session);
+        // Promotion pipeline: only promote next waitlisted member if a REGISTERED/JOINED member left!
+        if ("REGISTERED".equalsIgnoreCase(oldStatus) || "JOINED".equalsIgnoreCase(oldStatus)) {
+            promoteNextWaitlisted(session);
+        }
     }
 
     public void deleteSession(UUID sessionId) {
@@ -264,6 +282,13 @@ public class SocialService {
                 () -> {
                     session.setStatus("CANCELLED");
                     sessions.save(session);
+                    List<SocialParticipant> partList = participants.findBySession_Id(sessionId);
+                    for (SocialParticipant part : partList) {
+                        if (!"CANCELLED".equalsIgnoreCase(part.getStatus())) {
+                            part.setStatus("CANCELLED");
+                            participants.save(part);
+                        }
+                    }
                     occupancyService.releaseSocialSession(sessionId);
                     return true;
                 },
@@ -431,6 +456,6 @@ public class SocialService {
     public void cancelParticipation(UUID id) {
         SocialParticipant p = participants.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Participant not found"));
-        leaveSession(p.getSession().getId(), p.getMember() != null ? p.getMember().getId() : null);
+        cancelParticipant(p);
     }
 }
