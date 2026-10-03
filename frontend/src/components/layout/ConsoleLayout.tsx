@@ -19,11 +19,12 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
   const [collapsed, setCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  // Check if page is POS mode (e.g. /shop-console or /shop-console/quick or /bar or /kds) to expand full width for tablet touch use
+  // Check if page is POS mode to expand full width for tablet touch use
   const isPOS =
     route.path === "/shop-console" ||
     route.path === "/shop-console/quick" ||
     route.path === "/bar" ||
+    route.path === "/bar/table/:id" ||
     route.path === "/kds";
   const visibleGroupKeys = getVisibleNavGroups(user);
 

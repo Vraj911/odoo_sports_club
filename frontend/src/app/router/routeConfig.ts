@@ -114,13 +114,13 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/shop-console/reports", "Shop Reports", SHOP, 6, "shop", BarChart3), load: () => import("@/features/shop/pages/ShopReportsPage") },
 
   // ─── BAR + KDS ──────────────────────────────────────────────────────
-  c("/bar", "Bar Floor", BAR, 7, "bar", Wine),
-  c("/bar/table/:id", "Table", BAR, 7, "bar", Table2),
-  c("/bar/tabs", "Open Tabs", BAR, 7, "bar", Beer),
-  c("/bar/bill/:id", "Bill", BAR, 7, "bar", Receipt),
-  c("/bar/shift", "Shift", BAR, 7, "bar", Clock),
-  c("/bar/closing", "Closing", ADM, 7, "bar", Lock), // ADMIN only
-  c("/kds", "Kitchen Display", BAR, 7, "bar", ChefHat),
+  { ...c("/bar", "Bar Floor", BAR, 7, "bar", Wine), load: () => import("@/features/bar/pages/BarFloorPage") },
+  { ...c("/bar/table/:id", "Table", BAR, 7, "bar", Table2), load: () => import("@/features/bar/pages/BarTablePage") },
+  { ...c("/bar/tabs", "Open Tabs", BAR, 7, "bar", Beer), load: () => import("@/features/bar/pages/BarTabsPage") },
+  { ...c("/bar/bill/:id", "Bill", BAR, 7, "bar", Receipt), load: () => import("@/features/bar/pages/BarBillPage") },
+  { ...c("/bar/shift", "Shift", BAR, 7, "bar", Clock), load: () => import("@/features/bar/pages/BarShiftPage") },
+  { ...c("/bar/closing", "Closing", ADM, 7, "bar", Lock), load: () => import("@/features/bar/pages/BarClosingPage") }, // ADMIN only
+  { ...c("/kds", "Kitchen Display", BAR, 7, "bar", ChefHat), load: () => import("@/features/bar/pages/KDSPage") },
 
   // ─── CRM ────────────────────────────────────────────────────────────
   c("/crm", "CRM Overview", CRM_ACCESS, 8, "crm", Contact),
