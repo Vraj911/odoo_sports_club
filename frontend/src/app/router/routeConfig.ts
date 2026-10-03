@@ -56,7 +56,7 @@ export const routeConfig: RouteMeta[] = [
   { ...r("/checkout", "Checkout", "public", PUBLIC, 6, [], CreditCard), load: () => import("@/features/shop/pages/CheckoutPage") },
   { ...r("/trial", "Book a Trial", "public", PUBLIC, 8, ["WEB-05"], Sparkles), load: () => import("@/features/website/pages/TrialBookingPage") },
   { ...r("/contact", "Contact", "public", PUBLIC, 8, ["WEB-07"], Mail), load: () => import("@/features/website/pages/ContactPage") },
-  r("/share/:token", "Shared Report", "public", PUBLIC, 11, ["RPT-10"], Share2),
+  { ...r("/share/:token", "Shared Report", "public", PUBLIC, 11, ["RPT-10"], Share2), load: () => import("@/features/owner/pages/PublicShareReportPage") },
 
   // ─── AUTH ───────────────────────────────────────────────────────────
   { ...r("/login", "Sign in", "auth", PUBLIC, 2, ["AUTH-01"], LogIn), load: () => import("@/features/auth/pages/LoginPage") },
@@ -155,18 +155,18 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/hr/holidays", "Holidays", ADM, 10, "hr", PartyPopper), load: () => import("@/features/hr/pages/HrHolidaysPage") },
 
   // ─── OWNER (ADMIN ONLY) ─────────────────────────────────────────────
-  c("/owner", "Owner Dashboard", ADM, 11, "owner", Crown),
-  c("/owner/reports", "Reports", ADM, 11, "owner", FileBarChart),
-  c("/owner/scheduled-reports", "Scheduled Reports", ADM, 11, "owner", CalendarClock),
-  c("/owner/share-links", "Share Links", ADM, 11, "owner", Link2),
+  { ...c("/owner", "Owner Dashboard", ADM, 11, "owner", Crown), load: () => import("@/features/owner/pages/OwnerDashboardPage") },
+  { ...c("/owner/reports", "Reports", ADM, 11, "owner", FileBarChart), load: () => import("@/features/owner/pages/OwnerReportsPage") },
+  { ...c("/owner/scheduled-reports", "Scheduled Reports", ADM, 11, "owner", CalendarClock), load: () => import("@/features/owner/pages/OwnerScheduledReportsPage") },
+  { ...c("/owner/share-links", "Share Links", ADM, 11, "owner", Link2), load: () => import("@/features/owner/pages/OwnerShareLinksPage") },
 
   // ─── ADMIN (ADMIN ONLY - includes moved manager operations) ──────────
   c("/admin", "Admin Overview", ADM, 12, "admin", Settings),
-  c("/admin/calendar", "Operations Calendar", ADM, 11, "admin", CalendarDays),
-  c("/admin/utilisation", "Court Utilisation", ADM, 11, "admin", Activity),
-  c("/admin/overrides", "Admin Overrides", ADM, 11, "admin", SlidersHorizontal),
-  c("/admin/blocks", "Court Blocks", ADM, 11, "admin", Ban),
-  c("/admin/approvals", "Approvals", ADM, 11, "admin", CheckCheck),
+  { ...c("/admin/calendar", "Operations Calendar", ADM, 11, "admin", CalendarDays), load: () => import("@/features/admin/pages/AdminOperationsCalendarPage") },
+  { ...c("/admin/utilisation", "Court Utilisation", ADM, 11, "admin", Activity), load: () => import("@/features/admin/pages/AdminUtilisationPage") },
+  { ...c("/admin/overrides", "Admin Overrides", ADM, 11, "admin", SlidersHorizontal), load: () => import("@/features/admin/pages/AdminOverridesPage") },
+  { ...c("/admin/blocks", "Court Blocks", ADM, 11, "admin", Ban), load: () => import("@/features/admin/pages/AdminCourtBlocksPage") },
+  { ...c("/admin/approvals", "Approvals", ADM, 11, "admin", CheckCheck), load: () => import("@/features/admin/pages/AdminApprovalsPage") },
   c("/admin/club", "Club", ADM, 12, "admin", Building2),
   c("/admin/courts", "Courts", ADM, 12, "admin", LandPlot),
   c("/admin/hours", "Opening Hours", ADM, 12, "admin", Timer),
