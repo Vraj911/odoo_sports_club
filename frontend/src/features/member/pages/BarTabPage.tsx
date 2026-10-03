@@ -20,6 +20,8 @@ import { useToast } from "@/components/ui/Toast";
 import { Money } from "@/components/shared/Money";
 import { useMember } from "@/features/member/memberStore";
 import { SAMPLE_SETTLED_TABS } from "@/features/member/sampleData";
+import { downloadBillReceipt } from "@/lib/receiptDownload";
+import type { SettledBarBill } from "@/features/member/types";
 
 type BarTabCategory = "open-tab" | "bar-orders" | "bills";
 
@@ -83,6 +85,8 @@ export default function BarTabPage() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<BarTabCategory>("open-tab");
   const [requesting, setRequesting] = useState(false);
+  const [billRequested, setBillRequested] = useState(false);
+  const [settledBills, setSettledBills] = useState<SettledBarBill[]>(SAMPLE_SETTLED_TABS);
 
   const totalDiscount = tabItems.reduce((acc, i) => acc + i.discount * i.quantity, 0);
   const rawSubtotal = tabItems.reduce((acc, i) => acc + i.price * i.quantity, 0);
@@ -92,15 +96,47 @@ export default function BarTabPage() {
     setTimeout(() => {
       requestBill();
       setRequesting(false);
+      setBillRequested(true);
+
+      const generatedId = `BILL-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newBill: SettledBarBill = {
+        id: generatedId,
+        date: "Today · Just now",
+        server: "Sanjay M.",
+        itemsCount: tabItems.length,
+        paidAmount: tabBalance,
+        paymentMethod: "Club Account / Table T-4",
+        downloadUrl: "#",
+      };
+
+      setSettledBills((prev) => [newBill, ...prev]);
+
       toast.success(
-        "Bill Requested",
-        "Your server (Sanjay M.) and the cashier have been notified. A printed invoice will be brought to your table shortly."
+        "Bill Requested Successfully",
+        `Your server (Sanjay M.) has been notified. Bill #${generatedId} is generated and ready in Settled Invoices.`
       );
-    }, 600);
+    }, 500);
   };
 
   const handleDownloadBill = (billId: string) => {
-    toast.info("Receipt Downloaded", `Saved PDF receipt for Bill #${billId}.`);
+    const targetBill = settledBills.find((b) => b.id === billId);
+    downloadBillReceipt({
+      id: billId,
+      date: targetBill?.date || "Today · 21:15",
+      server: targetBill?.server || "Sanjay M.",
+      itemsCount: targetBill?.itemsCount || tabItems.length,
+      paidAmount: targetBill?.paidAmount || tabBalance,
+      paymentMethod: targetBill?.paymentMethod || "Club Tab Auto-Debit",
+      memberName: profile.name,
+      memberId: profile.memberId || `CC-${profile.id}`,
+      table: "Table T-4 (Courtside Terrace)",
+      items: tabItems.map((it) => ({
+        name: it.name,
+        qty: it.quantity,
+        price: it.price - it.discount,
+      })),
+    });
+    toast.success("Receipt Downloaded", `Official invoice receipt downloaded for Bill #${billId}.`);
   };
 
   return (
@@ -121,14 +157,33 @@ export default function BarTabPage() {
 
         {activeTab === "open-tab" && (
           <div className="flex items-center gap-3">
-            <Button
-              variant="primary"
-              onClick={handleRequestBill}
-              loading={requesting}
-              leftIcon={<BellRing className="size-4" />}
-            >
-              Request Bill
-            </Button>
+            {billRequested ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-1.5 rounded-pill bg-emerald-500/20 border border-emerald-500/40 px-3 py-1.5 text-xs font-bold text-emerald-400">
+                  <CheckCircle2 className="size-4" /> Bill Requested · Server Notified
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setActiveTab("bills");
+                    if (settledBills[0]) handleDownloadBill(settledBills[0].id);
+                  }}
+                  leftIcon={<Download className="size-3.5" />}
+                >
+                  Download Receipt
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="primary"
+                onClick={handleRequestBill}
+                loading={requesting}
+                leftIcon={<BellRing className="size-4" />}
+              >
+                Request Bill
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -421,7 +476,7 @@ export default function BarTabPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-chalk/8">
-                  {SAMPLE_SETTLED_TABS.map((bill) => (
+                  {settledBills.map((bill) => (
                     <tr key={bill.id} className="hover:bg-chalk/4">
                       <td className="py-4 px-6 font-mono font-semibold text-volt-400">{bill.id}</td>
                       <td className="py-4 px-4 text-chalk/80">{bill.date}</td>

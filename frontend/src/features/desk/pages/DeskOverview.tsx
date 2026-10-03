@@ -14,7 +14,18 @@ import {
   RefreshCw,
   Calendar,
   AlertTriangle,
+  TrendingUp,
+  BarChart2,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  CartesianGrid,
+} from "recharts";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { KPICard } from "@/components/ui/KPICard";
@@ -65,6 +76,27 @@ export default function DeskOverview() {
   const sparkData2 = [{ v: 25 }, { v: 30 }, { v: 33 }, { v: 38 }];
   const sparkData3 = [{ v: 8 }, { v: 6 }, { v: 5 }, { v: 3 }];
   const sparkData4 = [{ v: 12 }, { v: 9 }, { v: 6 }, { v: 4 }];
+
+  // Hourly front desk & court traffic velocity (06:00 to 22:00)
+  const hourlyTraffic = [
+    { hour: "06:00", checkins: 8, bookings: 10 },
+    { hour: "07:00", checkins: 16, bookings: 18 },
+    { hour: "08:00", checkins: 22, bookings: 24 },
+    { hour: "09:00", checkins: 18, bookings: 20 },
+    { hour: "10:00", checkins: 12, bookings: 14 },
+    { hour: "11:00", checkins: 9, bookings: 11 },
+    { hour: "12:00", checkins: 7, bookings: 8 },
+    { hour: "13:00", checkins: 6, bookings: 7 },
+    { hour: "14:00", checkins: 8, bookings: 9 },
+    { hour: "15:00", checkins: 14, bookings: 16 },
+    { hour: "16:00", checkins: 24, bookings: 26 },
+    { hour: "17:00", checkins: 32, bookings: 35 },
+    { hour: "18:00", checkins: 38, bookings: 40 },
+    { hour: "19:00", checkins: 42, bookings: 44 },
+    { hour: "20:00", checkins: 34, bookings: 36 },
+    { hour: "21:00", checkins: 20, bookings: 22 },
+    { hour: "22:00", checkins: 8, bookings: 10 },
+  ];
 
   // Mini live grid courts (all 10 courts) across active slots: 16:30, 17:00, 17:30, 18:00, 18:30, 19:00, 19:30, 20:00
   const miniSlots = ["16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
@@ -191,6 +223,93 @@ export default function DeskOverview() {
           sparklineData={sparkData4}
         />
       </div>
+
+      {/* Front Desk Traffic & Check-in Velocity Graph */}
+      <Card className="flex flex-col gap-4 p-5 bg-court-500 border border-white/10 shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-volt-400/15 text-volt-400">
+              <TrendingUp className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">
+                Today's Hourly Court Traffic &amp; Check-in Velocity
+              </h3>
+              <p className="text-xs text-white/60">
+                Live &amp; projected member flow across courts &amp; desk (06:00 – 22:00)
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className="flex items-center gap-1.5 text-volt-400 font-semibold">
+              <span className="size-2.5 rounded-full bg-volt-400" /> Member Check-ins
+            </span>
+            <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+              <span className="size-2.5 rounded-full bg-cyan-400" /> Court Bookings
+            </span>
+            <span className="px-2.5 py-1 rounded-pill bg-volt-400/10 text-volt-300 font-mono text-[11px] font-bold border border-volt-400/20">
+              Peak: 19:00 (42 members)
+            </span>
+          </div>
+        </div>
+
+        <div className="h-64 w-full pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={hourlyTraffic} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="checkinGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#d5f63a" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#d5f63a" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="bookingGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#22d3ee" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="hour" stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} />
+              <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} />
+              <RechartsTooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="rounded-xl border border-white/14 bg-court-700/95 p-3 text-xs text-white shadow-xl backdrop-blur-md">
+                        <p className="font-bold text-volt-400 mb-1.5">{label} IST</p>
+                        <p className="flex justify-between gap-4 text-chalk/80">
+                          <span>Check-ins:</span>
+                          <strong className="font-mono text-volt-300">{payload[0]?.value}</strong>
+                        </p>
+                        <p className="flex justify-between gap-4 text-chalk/80">
+                          <span>Bookings:</span>
+                          <strong className="font-mono text-cyan-300">{payload[1]?.value}</strong>
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="checkins"
+                stroke="#d5f63a"
+                strokeWidth={2.5}
+                fillOpacity={1}
+                fill="url(#checkinGrad)"
+              />
+              <Area
+                type="monotone"
+                dataKey="bookings"
+                stroke="#22d3ee"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#bookingGrad)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
 
       {/* Main Grid: Mini Live Availability + Arriving Next 60 Min */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

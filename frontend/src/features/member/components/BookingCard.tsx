@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { QrCode, RefreshCw, XCircle, CalendarPlus, ChevronRight, Tag, AlertCircle, Clock } from "lucide-react";
+import { QrCode, RefreshCw, XCircle, ChevronRight, Tag, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Badge } from "@/components/ui/Badge";
@@ -14,7 +14,7 @@ export interface BookingCardProps {
   onOpenQR: (booking: Booking) => void;
   onOpenReschedule: (booking: Booking) => void;
   onOpenCancel: (booking: Booking) => void;
-  onAddToCalendar: (booking: Booking) => void;
+  onAddToCalendar?: (booking: Booking) => void;
 }
 
 export function BookingCard({
@@ -201,18 +201,6 @@ export function BookingCard({
               Cancel
             </Button>
           )}
-
-          {/* Add to Calendar */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onAddToCalendar(booking)}
-            leftIcon={<CalendarPlus className="size-3.5" />}
-            title="Add to calendar (.ics)"
-            className="text-xs h-8 px-2.5"
-          >
-            Calendar
-          </Button>
         </div>
       </div>
     </div>

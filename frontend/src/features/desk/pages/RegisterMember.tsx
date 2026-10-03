@@ -163,8 +163,6 @@ export default function RegisterMember() {
       const age = Math.abs(new Date(diffMs).getUTCFullYear() - 1970);
       if (age < 18) {
         setSelectedTier("Junior");
-      } else if (selectedTier === "Junior") {
-        setSelectedTier("Gold");
       }
     }
   };
@@ -189,16 +187,16 @@ export default function RegisterMember() {
     return Object.keys(errs).length === 0;
   };
 
-  // Validate Step 2
+  // Validate Step 2 - Guardian is ONLY compulsory for Junior Academy tier
   const validateStep2 = () => {
     const errs: FormErrors = {};
-    if (isMinor) {
-      if (!guardianName.trim()) errs.guardianName = "Guardian name is required for minors (<18)";
+    if (selectedTier === "Junior") {
+      if (!guardianName.trim()) errs.guardianName = "Guardian name is required for Junior Academy members";
       if (!guardianPhone.trim() || guardianPhone.replace(/\D/g, "").length < 10) {
-        errs.guardianPhone = "Guardian phone number is required";
+        errs.guardianPhone = "Valid 10-digit guardian phone number is required";
       }
       if (!guardianConsent) {
-        errs.guardianConsent = "Guardian consent acknowledgment is mandatory (BR-15)";
+        errs.guardianConsent = "Guardian consent acknowledgment is mandatory for Junior Academy (BR-15)";
       }
     }
     setErrors(errs);
@@ -216,6 +214,7 @@ export default function RegisterMember() {
   const changeDue = Math.max(0, tenderedNum - totalAmount);
 
   const handleCompleteRegistration = () => {
+    const isJuniorTier = selectedTier === "Junior";
     const newMember = registerNewDeskMember({
       name: name.trim(),
       phone: phone.trim(),
@@ -226,9 +225,9 @@ export default function RegisterMember() {
       emergencyName: emergencyName.trim(),
       emergencyPhone: emergencyPhone.trim(),
       tier: selectedTier,
-      guardianName: isMinor ? guardianName.trim() : undefined,
-      guardianPhone: isMinor ? guardianPhone.trim() : undefined,
-      guardianConsent: isMinor ? guardianConsent : undefined,
+      guardianName: isJuniorTier ? guardianName.trim() : (guardianName.trim() || undefined),
+      guardianPhone: isJuniorTier ? guardianPhone.trim() : (guardianPhone.trim() || undefined),
+      guardianConsent: isJuniorTier ? guardianConsent : undefined,
       paymentMethod,
     });
 
@@ -468,9 +467,9 @@ export default function RegisterMember() {
             <div>
               <h2 className="text-lg font-semibold text-white">Step 2: Choose Membership Plan</h2>
               <p className="text-xs text-white/60 mt-0.5">
-                {isMinor
-                  ? "Member is under 18: Junior tier selected & guardian consent is required."
-                  : "Select an adult annual membership tier."}
+                {selectedTier === "Junior"
+                  ? "Junior Academy plan selected: Parent / Guardian verification and consent is mandatory."
+                  : "Select an adult annual membership tier (Gold or Silver)."}
               </p>
             </div>
             <span className="text-xs font-mono text-volt-400 bg-volt-400/10 px-2.5 py-1 rounded-full border border-volt-400/20">
@@ -482,18 +481,14 @@ export default function RegisterMember() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {PLAN_OPTIONS.map((plan) => {
               const isSelected = selectedTier === plan.tier;
-              const isJuniorCard = plan.tier === "Junior";
-              const isDisabled = !isMinor && isJuniorCard;
 
               return (
                 <div
                   key={plan.tier}
-                  onClick={() => !isDisabled && setSelectedTier(plan.tier)}
+                  onClick={() => setSelectedTier(plan.tier)}
                   className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
                     isSelected
                       ? "bg-volt-400/15 border-volt-400 ring-2 ring-volt-400/20 shadow-glow-volt"
-                      : isDisabled
-                      ? "bg-white/[0.02] border-white/5 opacity-40 cursor-not-allowed"
                       : "bg-white/5 border-white/10 hover:border-white/20 cursor-pointer"
                   }`}
                 >
@@ -519,25 +514,18 @@ export default function RegisterMember() {
                       ))}
                     </ul>
                   </div>
-
-                  {isDisabled && (
-                    <div className="mt-4 pt-3 border-t border-white/10 text-[11px] text-danger flex items-center gap-1.5">
-                      <Info className="size-3.5 shrink-0" />
-                      <span>BR-15: Disabled for age ≥ 18</span>
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
 
-          {/* REQUIRED Guardian Section for Minor (<18) */}
-          {isMinor && (
+          {/* MANDATORY Guardian Section ONLY for Junior Academy Member */}
+          {selectedTier === "Junior" && (
             <div className="p-5 rounded-2xl bg-volt-400/10 border border-volt-400/30 flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="size-5 text-volt-400" />
                 <h3 className="text-sm font-semibold text-white">
-                  Mandatory Guardian Block (BR-15: Required for Minors under 18)
+                  Mandatory Guardian Block (Compulsory for Junior Academy Members)
                 </h3>
               </div>
 
