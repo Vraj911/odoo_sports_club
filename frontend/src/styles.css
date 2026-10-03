@@ -1,0 +1,139 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * CCMS / bookmycourt design tokens — the ONLY place raw colour values live.
+ * Tailwind utilities are generated from these (bg-court-500, text-volt-400 ...).
+ */
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+
+  --color-navy-950: #0f1a33;
+  --color-navy-900: #16233f;
+  --color-navy-800: #1c2d4d;
+
+  --color-court-700: #1f4482;
+  --color-court-600: #274f92;
+  --color-court-500: #2c5aa6;
+  --color-court-400: #4672b8;
+  --color-court-300: #7fa0d4;
+  --color-court-100: #dce6f6;
+
+  --color-volt-400: #d5f63a;
+  --color-volt-500: #c6ea2a;
+  --color-volt-600: #b5d91f;
+  --color-volt-100: #f1fbb8;
+
+  --color-ink-900: #0f1b33;
+  --color-brand-green: #5fa318;
+  --color-chalk: #ffffff;
+  --color-line: rgba(255, 255, 255, 0.14);
+
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #7dd3fc;
+
+  --radius-pill: 9999px;
+  --radius-card: 20px;
+  --radius-frame: 28px;
+  --radius-modal: 24px;
+  --radius-input: 14px;
+
+  --shadow-card: 0 12px 32px rgba(8, 16, 40, 0.35);
+  --shadow-volt: 0 8px 24px rgba(213, 246, 58, 0.25);
+
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}
+
+/* shadcn-compatible aliases */
+@theme inline {
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --color-background: var(--color-navy-900);
+  --color-foreground: var(--color-chalk);
+  --color-card: var(--color-court-500);
+  --color-card-foreground: var(--color-chalk);
+  --color-popover: var(--color-navy-800);
+  --color-popover-foreground: var(--color-chalk);
+  --color-primary: var(--color-volt-400);
+  --color-primary-foreground: var(--color-ink-900);
+  --color-secondary: var(--color-court-600);
+  --color-secondary-foreground: var(--color-chalk);
+  --color-muted: var(--color-navy-800);
+  --color-muted-foreground: rgba(255, 255, 255, 0.6);
+  --color-accent: var(--color-court-400);
+  --color-accent-foreground: var(--color-chalk);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-ink-900);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-volt-400);
+}
+
+@utility bg-backdrop {
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    var(--color-navy-800) 0%,
+    var(--color-navy-900) 55%,
+    var(--color-navy-950) 100%
+  );
+}
+
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    animation: var(--animate-shimmer);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+  html {
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    color: var(--color-chalk);
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      var(--color-navy-800) 0%,
+      var(--color-navy-900) 55%,
+      var(--color-navy-950) 100%
+    );
+    background-attachment: fixed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-volt-400);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
