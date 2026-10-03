@@ -2,33 +2,80 @@ import type { ReactNode } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useGo } from "@/app/router/links";
 import { CourtLines } from "@/components/brand/CourtLines";
+import { PlayerSilhouette } from "@/components/brand/PlayerSilhouette";
 import { Logo } from "@/components/brand/Logo";
 import { Card } from "@/components/ui/Card";
 import { ROLE_HOME, ROLE_LABELS, ROLES } from "@/lib/constants";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 import type { RouteMeta } from "@/types/common";
 
 export function AuthLayout({ children }: { route: RouteMeta; children: ReactNode }) {
   const { loginAs } = useAuth();
   const go = useGo();
+
   return (
-    <div className="grid min-h-screen md:grid-cols-2">
-      <section className="relative hidden items-center justify-center overflow-hidden bg-court-500 p-10 md:flex">
-        <CourtLines opacity={0.5} className="absolute inset-6" />
-        <h1 className="relative text-4xl font-semibold">Welcome back, <span className="text-volt-400">champion.</span></h1>
+    <div className="grid min-h-screen md:grid-cols-2 bg-navy-950 text-chalk">
+      <CommandPalette />
+
+      {/* Left 50% Visual Panel */}
+      <section className="relative hidden items-center justify-center overflow-hidden bg-court-500 p-12 md:flex">
+        <CourtLines opacity={0.35} className="absolute inset-8 size-[calc(100%-4rem)] object-contain" />
+        
+        {/* Silhouette Player sitting in corner */}
+        <div className="absolute right-[10%] bottom-[15%] opacity-90 scale-110">
+          <PlayerSilhouette variant="right" />
+        </div>
+
+        <div className="relative z-10 flex max-w-md flex-col gap-4 text-center">
+          <Logo size={36} className="justify-center mb-2" />
+          <h1 className="text-4xl font-semibold tracking-tight leading-tight text-chalk">
+            Welcome back, <br />
+            <span className="text-volt-400">champion.</span>
+          </h1>
+          <p className="text-sm text-chalk/80 leading-relaxed">
+            Access your bookings, pro shop orders, bar tab, and club performance dashboard in one seamless portal.
+          </p>
+        </div>
       </section>
-      <section className="flex flex-col items-center justify-center gap-6 bg-navy-900 p-6">
-        <Logo />
-        <Card className="w-full max-w-md">
-          {children}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {ROLES.filter((r) => r !== "VISITOR").map((r) => (
-              <button key={r} onClick={() => { loginAs(r); go(ROLE_HOME[r]); }}
-                className="rounded-pill border border-line px-3 py-1.5 text-xs hover:bg-chalk/10">
-                Sign in as {ROLE_LABELS[r]}
-              </button>
-            ))}
-          </div>
-        </Card>
+
+      {/* Right 50% Form Container */}
+      <section className="relative flex flex-col items-center justify-center gap-6 bg-navy-900 p-6 sm:p-12 overflow-y-auto">
+        <div className="md:hidden">
+          <Logo size={32} />
+        </div>
+
+        {/* Mobile faint court lines texture */}
+        <div className="absolute inset-0 md:hidden pointer-events-none opacity-10">
+          <CourtLines variant="lines-faint" />
+        </div>
+
+        <div className="w-full max-w-md z-10">
+          <Card className="w-full border-chalk/18 bg-court-600/90 backdrop-blur-md shadow-2xl p-6 sm:p-8">
+            {children}
+
+            {/* Quick Demo Switcher Buttons */}
+            <div className="mt-8 border-t border-chalk/14 pt-6">
+              <p className="mb-3 text-center text-xs font-medium text-chalk/60 uppercase tracking-wider">
+                Quick Demo Login As Role
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {ROLES.filter((r) => r !== "VISITOR").map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => {
+                      loginAs(r);
+                      go(ROLE_HOME[r]);
+                    }}
+                    className="rounded-pill border border-chalk/18 bg-chalk/8 px-3 py-1.5 text-xs font-medium text-chalk/90 hover:bg-volt-400 hover:text-ink-900 hover:border-volt-400 transition-all text-center truncate"
+                  >
+                    {ROLE_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </div>
       </section>
     </div>
   );

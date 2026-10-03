@@ -40,7 +40,7 @@ const c = (path: string, title: string, roles: Role[], phase: Phase, group: NavG
 /** Single source of truth for routing AND navigation. */
 export const routeConfig: RouteMeta[] = [
   // PUBLIC
-  { ...r("/", "Home", "public", PUBLIC, 2, ["WEB-01"], Home), load: () => import("@/features/website/pages/HomePlaceholder") },
+  { ...r("/", "Home", "public", PUBLIC, 2, ["WEB-01"], Home), load: () => import("@/features/website/pages/Home") },
   r("/facilities", "Facilities", "public", PUBLIC, 8, ["WEB-01"], Building2),
   r("/plans", "Membership Plans", "public", PUBLIC, 8, ["WEB-02"], BadgeCheck),
   r("/availability", "This Week", "public", PUBLIC, 8, ["WEB-03"], CalendarDays),
@@ -53,10 +53,10 @@ export const routeConfig: RouteMeta[] = [
   r("/share/:token", "Shared Report", "public", PUBLIC, 11, ["RPT-10"], Share2),
 
   // AUTH
-  r("/login", "Sign in", "auth", PUBLIC, 2, ["AUTH-01"], LogIn),
-  r("/register", "Create account", "auth", PUBLIC, 2, ["AUTH-02"], UserPlus),
-  r("/forgot-password", "Forgot password", "auth", PUBLIC, 2, ["AUTH-03"], KeyRound),
-  r("/reset-password", "Reset password", "auth", PUBLIC, 2, ["AUTH-03"], KeyRound),
+  { ...r("/login", "Sign in", "auth", PUBLIC, 2, ["AUTH-01"], LogIn), load: () => import("@/features/auth/pages/LoginPage") },
+  { ...r("/register", "Create account", "auth", PUBLIC, 2, ["AUTH-02"], UserPlus), load: () => import("@/features/auth/pages/RegisterPage") },
+  { ...r("/forgot-password", "Forgot password", "auth", PUBLIC, 2, ["AUTH-03"], KeyRound), load: () => import("@/features/auth/pages/ForgotPasswordPage") },
+  { ...r("/reset-password", "Reset password", "auth", PUBLIC, 2, ["AUTH-03"], KeyRound), load: () => import("@/features/auth/pages/ResetPasswordPage") },
 
   // MEMBER
   r("/app", "Home", "member", MEMBERS, 4, [], LayoutDashboard),
