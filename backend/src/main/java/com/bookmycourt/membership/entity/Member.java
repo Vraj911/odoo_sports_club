@@ -60,6 +60,10 @@ public class Member extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    public UUID getUserId() {
+        return user == null ? null : user.getId();
+    }
+
     @PrePersist
     void assignQrToken() {
         if (qrToken == null) {

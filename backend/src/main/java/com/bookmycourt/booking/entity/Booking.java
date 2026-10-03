@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 @Getter
@@ -57,6 +58,12 @@ public class Booking extends BaseEntity {
     private String cancelReason;
     @Column(name = "cancelled_at")
     private OffsetDateTime cancelledAt;
+    /** PostgreSQL-generated Asia/Kolkata booking date; read-only in JPA. */
+    @Column(name = "booking_day", insertable = false, updatable = false)
+    private LocalDate bookingDay;
+    /** PostgreSQL-generated half-hour start index (0-47); read-only in JPA. */
+    @Column(name = "start_slot", insertable = false, updatable = false)
+    private Short startSlot;
     @jakarta.persistence.Version
     @Column(name = "version")
     private Long version;

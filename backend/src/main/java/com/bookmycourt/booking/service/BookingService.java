@@ -397,9 +397,7 @@ public class BookingService {
         if (overrideCap) {
             return;
         }
-        OffsetDateTime dayStart = day.atStartOfDay(ClubTime.IST).toOffsetDateTime();
-        OffsetDateTime dayEnd = day.plusDays(1).atStartOfDay(ClubTime.IST).toOffsetDateTime();
-        int active = bookings.countActiveForMemberDay(memberId, dayStart, dayEnd, CAP_STATUSES);
+        int active = bookings.countActiveForMemberDay(memberId, day, CAP_STATUSES);
         if (active >= dailyCap) {
             // TODO (BKG-08): also add the member's JOINED social-session count here once SocialParticipantRepository is available.
             throw new DomainException(ErrorCode.CAP_EXCEEDED, "Daily booking cap of " + dailyCap + " reached for member");

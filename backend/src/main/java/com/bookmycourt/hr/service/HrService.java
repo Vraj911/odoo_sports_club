@@ -246,12 +246,21 @@ public class HrService {
 
     @Transactional
     public com.bookmycourt.hr.dto.PayrollRunResponse generatePayrollRun(String month) {
-        com.bookmycourt.hr.entity.PayrollRun run = payrollRuns.findByMonth(month).orElseGet(() -> {
+        com.bookmycourt.hr.entity.PayrollRun existingRun = payrollRuns.findByMonth(month).orElse(null);
+        if (existingRun != null && ("FINALISED".equalsIgnoreCase(existingRun.getStatus())
+                || !payslips.findByPayrollRun_Id(existingRun.getId()).isEmpty())) {
+            throw new com.bookmycourt.common.error.DomainException(
+                    com.bookmycourt.common.error.ErrorCode.PAYROLL_FINALISED,
+                    "Payroll for " + month + " has already been generated");
+        }
+
+        com.bookmycourt.hr.entity.PayrollRun run = existingRun;
+        if (run == null) {
             com.bookmycourt.hr.entity.PayrollRun newRun = new com.bookmycourt.hr.entity.PayrollRun();
             newRun.setMonth(month);
             newRun.setStatus("DRAFT");
-            return newRun;
-        });
+            run = newRun;
+        }
 
         List<Employee> activeEmps = employees.findByEmploymentStatus("ACTIVE");
         java.math.BigDecimal totalGross = java.math.BigDecimal.ZERO;

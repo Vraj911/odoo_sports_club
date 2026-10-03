@@ -24,9 +24,24 @@ public class ClubProfile extends BaseEntity {
     private String address;
     private String website;
 
+    @Column(name = "logo_url")
+    private String logoUrl;
+
+    @Column(length = 15)
+    private String gstin;
+
     @Column(nullable = false, length = 3)
     private String currency = "INR";
 
     @Column(nullable = false)
     private String timezone = "Asia/Kolkata";
+
+    @Column(name = "invoice_prefix", nullable = false, length = 10)
+    private String invoicePrefix = "INV";
+
+    @Column(name = "receipt_prefix", nullable = false, length = 10)
+    private String receiptPrefix = "RCT";
+
+    @Column(name = "bill_prefix", nullable = false, length = 10)
+    private String billPrefix = "BAR";
 }

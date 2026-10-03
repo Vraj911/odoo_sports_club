@@ -3,6 +3,9 @@ package com.bookmycourt.common.error;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    FORBIDDEN(HttpStatus.FORBIDDEN),
+    CONFLICT(HttpStatus.CONFLICT),
+    VALIDATION_ERROR(HttpStatus.BAD_REQUEST),
     SLOT_TAKEN(HttpStatus.CONFLICT),
     CAP_EXCEEDED(HttpStatus.CONFLICT),
     INVALID_SLOT(HttpStatus.BAD_REQUEST),

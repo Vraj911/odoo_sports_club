@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface PayslipRepository extends JpaRepository<Payslip, UUID> {
     List<Payslip> findByPayrollRun_Id(UUID runId);
     List<Payslip> findByEmployee_IdOrderByCreatedAtDesc(UUID employeeId);
+    boolean existsByPayrollRun_IdAndEmployee_Id(UUID payrollRunId, UUID employeeId);
 }

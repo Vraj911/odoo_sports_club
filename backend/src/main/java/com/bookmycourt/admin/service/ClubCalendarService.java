@@ -7,18 +7,17 @@ import com.bookmycourt.admin.repository.ClubOpeningHoursRepository;
 import com.bookmycourt.booking.engine.SlotMask;
 import com.bookmycourt.common.event.events.SystemEvents.ClubConfigChanged;
 import jakarta.annotation.PostConstruct;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
@@ -33,12 +32,16 @@ public class ClubCalendarService {
         HOLIDAY
     }
 
+    /** Active holiday: either a full closure or special opening hours. */
+    private record HolidayRule(boolean closed, LocalTime open, LocalTime close) {
+    }
+
     private final ClubOpeningHoursRepository hoursRepository;
     private final ClubHolidayRepository holidayRepository;
 
     private static final class CalendarSnapshot {
         final Map<Short, ClubOpeningHours> weeklyHours;
-        final Set<LocalDate> holidays;
+        final Map<LocalDate, HolidayRule> holidays;
 
         CalendarSnapshot(List<ClubOpeningHours> hoursList, List<ClubHoliday> holidayList) {
             Map<Short, ClubOpeningHours> m = new HashMap<>();
@@ -47,13 +50,13 @@ public class ClubCalendarService {
             }
             this.weeklyHours = Map.copyOf(m);
 
-            Set<LocalDate> s = new HashSet<>();
-            for (ClubHoliday holiday : holidayList) {
-                if (holiday.isActive()) {
-                    s.add(holiday.getHolidayDate());
+            Map<LocalDate, HolidayRule> hm = new HashMap<>();
+            for (ClubHoliday h : holidayList) {
+                if (h.isActive()) {
+                    hm.put(h.getHolidayDate(), new HolidayRule(h.isClosed(), h.getOpenTime(), h.getCloseTime()));
                 }
             }
-            this.holidays = Set.copyOf(s);
+            this.holidays = Map.copyOf(hm);
         }
     }
 
@@ -70,7 +73,12 @@ public class ClubCalendarService {
         rebuild();
     }
 
-    @EventListener
+    /**
+     * AFTER_COMMIT so the cache is never rebuilt from (or poisoned by) a transaction that later rolls back.
+     * fallbackExecution keeps it working when the event is published outside a transaction.
+     * NOTE: requires DomainEventPublisher to delegate to Spring's ApplicationEventPublisher.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onConfigChanged(ClubConfigChanged event) {
         rebuild();
     }
@@ -79,6 +87,11 @@ public class ClubCalendarService {
         List<ClubOpeningHours> hours = hoursRepository.findAll();
         List<ClubHoliday> holidays = holidayRepository.findAll();
         snapshot.set(new CalendarSnapshot(hours, holidays));
+    }
+
+    public List<ClubOpeningHours> weeklySchedule() {
+        CalendarSnapshot snap = snapshot.get();
+        return snap == null ? List.of() : List.copyOf(snap.weeklyHours.values());
     }
 
     public boolean isClosed(LocalDate date) {
@@ -91,8 +104,12 @@ public class ClubCalendarService {
             return Optional.of(new DayHours(LocalTime.of(6, 0), LocalTime.of(22, 0)));
         }
 
-        if (snap.holidays.contains(date)) {
-            return Optional.empty();
+        HolidayRule holiday = snap.holidays.get(date);
+        if (holiday != null) {
+            if (holiday.closed() || holiday.open() == null || holiday.close() == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new DayHours(holiday.open(), holiday.close()));
         }
 
         short weekday = (short) date.getDayOfWeek().getValue();
@@ -118,7 +135,7 @@ public class ClubCalendarService {
 
     public DayType dayType(LocalDate date) {
         CalendarSnapshot snap = snapshot.get();
-        if (snap != null && snap.holidays.contains(date)) {
+        if (snap != null && snap.holidays.containsKey(date)) {
             return DayType.HOLIDAY;
         }
         DayOfWeek dow = date.getDayOfWeek();
@@ -128,7 +145,11 @@ public class ClubCalendarService {
         return DayType.WEEKDAY;
     }
 
+    /** FIX: a closed day / full-closure holiday used to fall back to the 06:00-22:00 default and look bookable. */
     public long openStarts(LocalDate date) {
+        if (isClosed(date)) {
+            return 0L;
+        }
         int open = openSlot(date);
         int close = closeSlot(date);
         if (close <= open) {

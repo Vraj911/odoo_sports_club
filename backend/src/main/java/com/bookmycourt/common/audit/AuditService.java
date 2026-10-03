@@ -17,7 +17,7 @@ import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
 
-@Service
+@Service("commonAuditService")
 public class AuditService {
 
     private static final Logger log = LoggerFactory.getLogger(AuditService.class);
@@ -50,16 +50,7 @@ public class AuditService {
             appUserRepository.findById(actor.userId()).ifPresent(auditLog::setActor);
         }
 
-        String jsonDetails = "{}";
-        if (details != null && !details.isEmpty()) {
-            try {
-                jsonDetails = objectMapper.writeValueAsString(details);
-            } catch (Exception e) {
-                log.error("Failed to serialize audit log details for {}: {}", action, details, e);
-                jsonDetails = "{\"error\":\"Serialization failed\"}";
-            }
-        }
-        auditLog.setDetails(jsonDetails);
+        auditLog.setDetails(details == null ? Map.of() : details);
 
         try {
             auditLogRepository.save(auditLog);

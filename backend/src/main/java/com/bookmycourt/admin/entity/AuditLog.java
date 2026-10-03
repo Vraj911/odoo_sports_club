@@ -13,14 +13,19 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
+/** Append-only (NFR-06). @Immutable stops Hibernate updates; a DB trigger blocks UPDATE/DELETE. */
 @Getter
 @Setter
+@Immutable
 @Entity
 @Table(name = "audit_log")
 public class AuditLog {
@@ -48,9 +53,20 @@ public class AuditLog {
     @Column(name = "user_agent")
     private String userAgent;
 
+    @Column(name = "reason")
+    private String reason;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "before_value", columnDefinition = "jsonb")
+    private Map<String, Object> beforeValue;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "after_value", columnDefinition = "jsonb")
+    private Map<String, Object> afterValue;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "details", columnDefinition = "jsonb", nullable = false)
-    private String details = "{}";
+    private Map<String, Object> details = new HashMap<>();
 
     @PrePersist
     public void onPrePersist() {

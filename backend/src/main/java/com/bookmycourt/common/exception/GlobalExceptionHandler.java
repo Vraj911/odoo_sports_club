@@ -10,12 +10,14 @@ import com.bookmycourt.common.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDate;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -99,6 +101,22 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure(exception.getMessage(), null));
     }
 
+    /**
+     * PostgreSQL uses SQLSTATE 23P01 for an exclusion-constraint conflict.  The
+     * occupancy constraint added in V8 is the final cross-node booking guard;
+     * expose that expected conflict as the same API response as an in-memory
+     * slot collision instead of returning a generic server error.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException exception) {
+        if (hasSqlState(exception, "23P01")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.failure("SLOT_TAKEN", null));
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure("Data integrity constraint violated", null));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception exception) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -107,5 +125,16 @@ public class GlobalExceptionHandler {
 
     private String formatFieldError(FieldError fieldError) {
         return fieldError.getField() + ": " + fieldError.getDefaultMessage();
+    }
+
+    private boolean hasSqlState(Throwable exception, String expectedState) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof SQLException sqlException && expectedState.equals(sqlException.getSQLState())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

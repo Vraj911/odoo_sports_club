@@ -19,5 +19,6 @@ public interface PaymentDueRepository extends JpaRepository<PaymentDue, UUID> {
     List<PaymentDue> findByStatusOrderByDueSinceDesc(String status);
     long countByMember_IdAndStatus(UUID memberId, String status);
     Optional<PaymentDue> findByRefTypeAndRefIdAndStatus(String refType, UUID refId, String status);
+    List<PaymentDue> findByRefTypeAndRefId(String refType, UUID refId);
     List<PaymentDue> findByStatusAndDueSinceBefore(String status, OffsetDateTime before);
 }

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -17,8 +18,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     @Query("""
             SELECT b FROM Booking b
             WHERE b.court.id = :courtId
-              AND b.startTime >= :from
               AND b.startTime < :to
+              AND b.endTime > :from
               AND b.status IN :statuses
             """)
     List<Booking> findOccupying(
@@ -30,14 +31,12 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     @Query("""
             SELECT COUNT(b) FROM Booking b
             WHERE b.member.id = :memberId
-              AND b.startTime >= :from
-              AND b.startTime < :to
+              AND b.bookingDay = :day
               AND b.status IN :statuses
             """)
     int countActiveForMemberDay(
             @Param("memberId") UUID memberId,
-            @Param("from") OffsetDateTime from,
-            @Param("to") OffsetDateTime to,
+            @Param("day") LocalDate day,
             @Param("statuses") Collection<String> statuses);
 
     @Query("""
