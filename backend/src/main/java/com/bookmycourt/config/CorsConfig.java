@@ -26,7 +26,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Bean
+    @Bean(name = "corsConfigurationSourceOverride")
     public CorsConfigurationSource corsConfigurationSource(
             @Value("${app.cors.allowed-origins:}") String allowedOrigins) {
 
