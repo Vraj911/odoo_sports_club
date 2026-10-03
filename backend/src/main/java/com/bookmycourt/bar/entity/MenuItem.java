@@ -29,6 +29,14 @@ public class MenuItem extends BaseEntity {
     @Column(name = "tax_rate", nullable = false)
     private BigDecimal taxRate = BigDecimal.ZERO;
 
+    /** BAR-10: price already includes GST. */
+    @Column(name = "tax_inclusive", nullable = false)
+    private boolean taxInclusive = false;
+
+    /** BAR-01: KITCHEN or BAR routing for the KDS. */
+    @Column(nullable = false, length = 20)
+    private String station = "KITCHEN";
+
     @Column(name = "is_available", nullable = false)
     private boolean available = true;
 }

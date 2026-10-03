@@ -12,6 +12,8 @@ public record MenuItemResponse(
         BigDecimal price,
         BigDecimal taxRate,
         boolean isAvailable,
+        String station,
+        boolean taxInclusive,
         Instant createdAt
 ) {
 }

@@ -10,7 +10,13 @@ public record BarOrderLineResponse(
         BigDecimal quantity,
         BigDecimal unitPrice,
         BigDecimal taxRate,
+        BigDecimal discountAmount,
+        BigDecimal taxAmount,
         BigDecimal lineTotal,
+        boolean taxInclusive,
+        boolean comped,
+        String notes,
+        String station,
         String kitchenStatus
 ) {
 }

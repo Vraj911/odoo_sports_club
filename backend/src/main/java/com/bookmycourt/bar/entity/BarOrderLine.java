@@ -1,5 +1,6 @@
 package com.bookmycourt.bar.entity;
 
+import com.bookmycourt.membership.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,6 +14,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -45,9 +47,44 @@ public class BarOrderLine {
     @Column(name = "tax_rate", nullable = false)
     private BigDecimal taxRate = BigDecimal.ZERO;
 
+    @Column(name = "tax_inclusive", nullable = false)
+    private boolean taxInclusive = false;
+
+    @Column(name = "discount_amount", nullable = false)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "tax_amount", nullable = false)
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+
     @Column(name = "line_total", nullable = false)
     private BigDecimal lineTotal = BigDecimal.ZERO;
 
+    @Column(name = "is_comped", nullable = false)
+    private boolean comped = false;
+
+    @Column(length = 200)
+    private String notes;
+
+    @Column(nullable = false, length = 20)
+    private String station = "KITCHEN";
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ordered_by")
+    private AppUser orderedBy;
+
+    /** NEW -> PREPARING -> READY -> SERVED, or VOID (BAR-04). */
     @Column(name = "kitchen_status", nullable = false)
     private String kitchenStatus = "NEW";
+
+    @Column(name = "sent_at", nullable = false)
+    private Instant sentAt = Instant.now();
+
+    @Column(name = "ready_at")
+    private Instant readyAt;
+
+    @Column(name = "served_at")
+    private Instant servedAt;
+
+    @Column(name = "void_reason")
+    private String voidReason;
 }

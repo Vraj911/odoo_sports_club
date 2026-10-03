@@ -1,13 +1,15 @@
 package com.bookmycourt.bar.dto;
 
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 public record BarOrderLineRequest(
         @NotNull UUID menuItemId,
-        @NotNull @DecimalMin("0.001") BigDecimal quantity
+        @NotNull @Min(1) @Max(99) Integer quantity,
+        @Size(max = 200) String notes          // BAR-01 modifiers, e.g. "less spicy"
 ) {
 }

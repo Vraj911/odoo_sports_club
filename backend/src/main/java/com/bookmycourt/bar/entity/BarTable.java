@@ -19,6 +19,7 @@ public class BarTable extends BaseEntity {
     @Column(nullable = false)
     private Integer capacity;
 
+    /** FREE, OCCUPIED, BILL_REQUESTED, RESERVED (BAR-02). Was "AVAILABLE". */
     @Column(nullable = false)
-    private String status = "AVAILABLE";
+    private String status = "FREE";
 }

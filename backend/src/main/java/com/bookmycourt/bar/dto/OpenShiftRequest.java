@@ -6,8 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+/** staffUserId is optional: defaults to the authenticated user. Only a manager may open a shift for someone else. */
 public record OpenShiftRequest(
-        @NotNull UUID staffUserId,
+        UUID staffUserId,
         @NotNull @DecimalMin("0.00") BigDecimal openingFloat,
         String scope
 ) {
