@@ -48,6 +48,38 @@ export function DevRoleSwitcher() {
                 </button>
               </li>
             ))}
+
+            {/* Member State Switcher for Phase 4 Demo */}
+            <li className="mt-2 border-t border-line pt-1.5 px-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-chalk/50 block mb-1">
+                Demo Member State (Phase 4)
+              </span>
+              <div className="space-y-1">
+                {[
+                  { key: "active-gold", label: "ACTIVE Gold (Pratham)" },
+                  { key: "expiring-soon", label: "EXPIRING_SOON (Priya · 8d)" },
+                  { key: "expired", label: "EXPIRED (Rohan · Lapsed)" },
+                  { key: "pending-payment", label: "PENDING_PAYMENT (Neha)" },
+                  { key: "junior", label: "Junior (Aarav · Guardian)" },
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => {
+                      import("@/features/member/memberStore").then(({ memberStore }) => {
+                        memberStore.switchMember(m.key);
+                      });
+                      loginAs("MEMBER");
+                      close();
+                      go("/app");
+                    }}
+                    className="w-full rounded-md px-2 py-1 text-left text-[11px] text-chalk/80 hover:bg-chalk/10 hover:text-volt-400 font-mono transition-colors"
+                  >
+                    • {m.label}
+                  </button>
+                ))}
+              </div>
+            </li>
+
             <li className="mt-1 border-t border-line pt-1">
               <button
                 onClick={() => {
