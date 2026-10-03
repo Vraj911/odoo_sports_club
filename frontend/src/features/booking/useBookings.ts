@@ -1,188 +1,275 @@
-import { useState, useCallback, useEffect } from "react";
-import type { Booking, SlotCell, Sport, MemberTier, PriceQuote, AlternativeSlot, Court } from "./types";
-import { api } from "@/lib/axios";
-import { useAuth } from "@/app/providers/AuthProvider";
+import { useState, useCallback, useEffect, useRef } from "react";
+import type { Booking, SlotCell, Sport, MemberTier, PriceQuote, AlternativeSlot } from "./types";
 import {
+  COURTS,
+  generateInitialGrid,
+  generateSampleBookings,
   getQuote,
-  MAX_BOOKINGS_PER_DAY,
-  SESSION_MINUTES,
-  addMinutes,
   findAlternativeSlots,
-  isSlotPast,
+  MAX_BOOKINGS_PER_DAY,
+  HOLD_SECONDS,
+  addMinutes,
+  SESSION_MINUTES,
+  timeToMinutes,
+  randomName,
+  initials,
   TIME_SLOTS,
 } from "./sampleData";
 
-interface ApiResponse<T> {
-  data: T;
-  message: string;
-}
-
-interface AvailabilityResponse {
-  courtId: string;
-  courtName: string;
-  sport: string;
-  indoor: boolean;
-  occupiedHalfHours: string[];
-  startableStarts: string[];
-}
-
-interface BookingResponse {
-  id: string;
-  courtId: string;
-  courtName: string;
-  sport: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: Booking["status"];
-  price: number;
-  memberName: string;
-  memberId?: string;
-  guestName?: string;
-  guestPhone?: string;
-  paymentStatus: Booking["paymentStatus"];
-  createdAt: string;
-  holdExpiry?: string;
-}
-
-function toSport(value: string): Sport {
-  return value.toLowerCase() as Sport;
-}
-
-function toBooking(value: BookingResponse): Booking {
-  return {
-    id: value.id,
-    courtId: value.courtId,
-    courtName: value.courtName,
-    sport: toSport(value.sport),
-    date: value.date,
-    startTime: value.startTime,
-    endTime: value.endTime,
-    status: value.status,
-    price: Number(value.price),
-    memberName: value.memberName || value.guestName || "Guest",
-    memberId: value.memberId || "GUEST",
-    createdAt: Date.parse(value.createdAt),
-    holdExpiry: value.holdExpiry ? Date.parse(value.holdExpiry) : undefined,
-    paymentStatus: value.paymentStatus,
-  };
-}
-
+// ── Format date to YYYY-MM-DD ──
 export function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// ── useBookings: manages the booking state for the grid and booking page ──
 export function useBookings(currentTier: MemberTier = "Gold") {
-  const { user } = useAuth();
-  const memberId = user?.id;
   const [sport, setSport] = useState<Sport>("tennis");
-  const [selectedDate, setSelectedDate] = useState(toDateStr(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string>(toDateStr(new Date()));
   const [grid, setGrid] = useState<SlotCell[][]>([]);
-  const [courts, setCourts] = useState<Court[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAvailability = useCallback(async () => {
+  // Simulated error state → auto-clear after 1.5s
+  const simulateLoad = useCallback(() => {
     setLoading(true);
     setError(null);
-    try {
-      const response = await api.get<ApiResponse<AvailabilityResponse[]>>("/api/availability", {
-        params: { sport, date: selectedDate },
-      });
-      const availability = response.data.data;
-      setCourts(availability.map((item) => ({
-        id: item.courtId,
-        name: item.courtName,
-        sport: toSport(item.sport),
-        indoor: item.indoor,
-      })));
-      setGrid(availability.map((item) => TIME_SLOTS.map((time): SlotCell => {
-        const occupied = item.occupiedHalfHours.includes(time);
-        const startable = item.startableStarts.includes(time);
-        return {
-          courtId: item.courtId,
-          time,
-          status: isSlotPast(selectedDate, time)
-            ? "past"
-            : occupied
-            ? "booked"
-            : startable
-            ? "free"
-            : "closed",
-        };
-      })));
-    } catch {
-      setError("Unable to load live court availability. Check that the backend is running.");
-      setGrid([]);
-    } finally {
+    setTimeout(() => {
+      // 10% chance of brief error
+      if (Math.random() < 0.1) {
+        setError("Brief network hiccup — retrying...");
+        setTimeout(() => {
+          setError(null);
+          setLoading(false);
+        }, 1200);
+        return;
+      }
       setLoading(false);
-    }
-  }, [selectedDate, sport]);
+    }, 600);
+  }, []);
 
-  const loadBookings = useCallback(async () => {
-    if (!memberId) {
-      setBookings([]);
-      return;
-    }
-    try {
-      const response = await api.get<ApiResponse<BookingResponse[]>>("/api/bookings", {
-        params: { memberId },
-      });
-      setBookings(response.data.data.map(toBooking));
-    } catch {
-      setBookings([]);
-    }
-  }, [memberId]);
-
+  // Rebuild grid when sport or date changes
   useEffect(() => {
-    void loadAvailability();
-  }, [loadAvailability]);
+    simulateLoad();
+    const sampleBookings = generateSampleBookings(selectedDate);
+    const merged = [...sampleBookings, ...bookings.filter((b) => b.date === selectedDate)];
+    const newGrid = generateInitialGrid(selectedDate, sport, merged);
+    setGrid(newGrid);
+  }, [sport, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    void loadBookings();
-  }, [loadBookings]);
-
+  // Today's bookings count (confirmed + pending, not cancelled)
   const todayBookingCount = bookings.filter(
-    (booking) => booking.date === selectedDate && !["CANCELLED", "EXPIRED"].includes(booking.status)
+    (b) =>
+      b.date === selectedDate &&
+      b.memberId === "SELF" &&
+      b.status !== "CANCELLED" &&
+      b.status !== "EXPIRED"
   ).length;
+
   const canBook = todayBookingCount < MAX_BOOKINGS_PER_DAY;
 
+  // Get price quote
   const quote = useCallback(
-    (selectedSport: Sport): PriceQuote => getQuote(selectedSport, currentTier),
+    (s: Sport): PriceQuote => getQuote(s, currentTier),
     [currentTier]
   );
 
-  const createBooking = useCallback(async (courtId: string, date: string, startTime: string) => {
-    try {
-      const response = await api.post<ApiResponse<BookingResponse>>("/api/bookings", {
+  // Create booking
+  const createBooking = useCallback(
+    (
+      courtId: string,
+      date: string,
+      startTime: string,
+    ): { success: boolean; booking?: Booking; error?: string } => {
+      // Check cap
+      const todayCount = bookings.filter(
+        (b) =>
+          b.date === date &&
+          b.memberId === "SELF" &&
+          b.status !== "CANCELLED" &&
+          b.status !== "EXPIRED"
+      ).length;
+      if (todayCount >= MAX_BOOKINGS_PER_DAY) {
+        return { success: false, error: "CAP_EXCEEDED" };
+      }
+
+      // Check overlap
+      const court = COURTS.find((c) => c.id === courtId);
+      if (!court) return { success: false, error: "INVALID_COURT" };
+
+      const endTime = addMinutes(startTime, SESSION_MINUTES);
+      const startMin = timeToMinutes(startTime);
+      const endMin = timeToMinutes(endTime);
+
+      const overlap = bookings.find(
+        (b) =>
+          b.courtId === courtId &&
+          b.date === date &&
+          b.status !== "CANCELLED" &&
+          b.status !== "EXPIRED" &&
+          timeToMinutes(b.startTime) < endMin &&
+          timeToMinutes(b.endTime) > startMin
+      );
+
+      if (overlap) {
+        return { success: false, error: "SLOT_TAKEN" };
+      }
+
+      const priceQuote = getQuote(court.sport, currentTier);
+      const isFree = priceQuote.youPay === 0;
+
+      const booking: Booking = {
+        id: `BK-${Date.now().toString(36).toUpperCase()}`,
         courtId,
-        memberId,
-        guestName: memberId ? undefined : "Demo Guest",
+        courtName: court.name,
+        sport: court.sport,
         date,
         startTime,
-        channel: "DESK",
-      });
-      const booking = toBooking(response.data.data);
-      setBookings((previous) => [booking, ...previous]);
-      await loadAvailability();
-      return { success: true, booking };
-    } catch (error) {
-      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message;
-      return { success: false, error: message || "BOOKING_FAILED" };
-    }
-  }, [loadAvailability, memberId]);
+        endTime,
+        status: isFree ? "CONFIRMED" : "PENDING",
+        price: priceQuote.youPay,
+        memberName: "Demo Member",
+        memberId: "SELF",
+        createdAt: Date.now(),
+        holdExpiry: isFree ? undefined : Date.now() + HOLD_SECONDS * 1000,
+      };
 
+      setBookings((prev) => [...prev, booking]);
+
+      // Update grid
+      setGrid((prev) =>
+        prev.map((row) =>
+          row.map((cell) => {
+            if (
+              cell.courtId === courtId &&
+              timeToMinutes(cell.time) >= startMin &&
+              timeToMinutes(cell.time) < endMin
+            ) {
+              return {
+                ...cell,
+                status: isFree ? "mine" : "held",
+                bookingId: booking.id,
+                holdExpiry: booking.holdExpiry,
+                memberName: "Demo Member",
+                memberInitials: "DM",
+              };
+            }
+            return cell;
+          })
+        )
+      );
+
+      return { success: true, booking };
+    },
+    [bookings, currentTier]
+  );
+
+  // Confirm booking (after payment)
+  const confirmBooking = useCallback(
+    (bookingId: string) => {
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId ? { ...b, status: "CONFIRMED" as const, holdExpiry: undefined } : b
+        )
+      );
+      setGrid((prev) =>
+        prev.map((row) =>
+          row.map((cell) =>
+            cell.bookingId === bookingId
+              ? { ...cell, status: "mine" as const, holdExpiry: undefined }
+              : cell
+          )
+        )
+      );
+    },
+    []
+  );
+
+  // Expire booking
+  const expireBooking = useCallback(
+    (bookingId: string) => {
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId ? { ...b, status: "EXPIRED" as const, holdExpiry: undefined } : b
+        )
+      );
+      setGrid((prev) =>
+        prev.map((row) =>
+          row.map((cell) =>
+            cell.bookingId === bookingId
+              ? { ...cell, status: "free" as const, bookingId: undefined, holdExpiry: undefined, memberName: undefined, memberInitials: undefined }
+              : cell
+          )
+        )
+      );
+    },
+    []
+  );
+
+  // Cancel booking
+  const cancelBooking = useCallback(
+    (bookingId: string) => {
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId ? { ...b, status: "CANCELLED" as const } : b
+        )
+      );
+      setGrid((prev) =>
+        prev.map((row) =>
+          row.map((cell) =>
+            cell.bookingId === bookingId
+              ? { ...cell, status: "free" as const, bookingId: undefined, holdExpiry: undefined, memberName: undefined, memberInitials: undefined }
+              : cell
+          )
+        )
+      );
+    },
+    []
+  );
+
+  // Find alternatives for a taken slot
   const getAlternatives = useCallback(
-    (courtId: string, time: string): AlternativeSlot[] => findAlternativeSlots(grid, selectedDate, sport, courtId, time),
+    (courtId: string, time: string): AlternativeSlot[] =>
+      findAlternativeSlots(grid, selectedDate, sport, courtId, time),
     [grid, selectedDate, sport]
   );
 
-  const cancelBooking = useCallback(async (bookingId: string, reason?: string) => {
-    await api.patch(`/api/bookings/${bookingId}/cancel`, { reason });
-    await loadBookings();
-    await loadAvailability();
-  }, [loadAvailability, loadBookings]);
+  // Simulated live update: randomly book a free slot every ~8s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGrid((prev) => {
+        const flatFree: { ri: number; ci: number }[] = [];
+        prev.forEach((row, ri) => {
+          row.forEach((cell, ci) => {
+            if (cell.status === "free") flatFree.push({ ri, ci });
+          });
+        });
+        if (flatFree.length === 0) return prev;
+
+        const pick = flatFree[Math.floor(Math.random() * flatFree.length)];
+        if (!pick) return prev;
+        const rn = randomName();
+        const next = prev.map((row, ri) =>
+          ri === pick.ri
+            ? row.map((cell, ci) =>
+                ci === pick.ci
+                  ? {
+                      ...cell,
+                      status: "booked" as const,
+                      memberName: rn,
+                      memberInitials: initials(rn),
+                      _flash: true,
+                    }
+                  : cell
+              )
+            : row
+        );
+        return next;
+      });
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return {
     sport,
@@ -191,7 +278,6 @@ export function useBookings(currentTier: MemberTier = "Gold") {
     setSelectedDate,
     grid,
     setGrid,
-    courts,
     bookings,
     loading,
     error,
@@ -199,13 +285,10 @@ export function useBookings(currentTier: MemberTier = "Gold") {
     canBook,
     quote,
     createBooking,
-    confirmBooking: async (_bookingId: string) => undefined,
-    expireBooking: async (_bookingId: string) => undefined,
+    confirmBooking,
+    expireBooking,
     cancelBooking,
     getAlternatives,
-    simulateLoad: loadAvailability,
-    refreshBookings: loadBookings,
-    sessionMinutes: SESSION_MINUTES,
-    addMinutes,
+    simulateLoad,
   };
 }

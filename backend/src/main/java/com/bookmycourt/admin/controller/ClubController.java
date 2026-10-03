@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/club")
+@RequestMapping({"/api/club", "/api/public/club"})
 public class ClubController {
 
     private final ClubQueryService club;

@@ -1,5 +1,4 @@
 import { useSyncExternalStore, useCallback } from "react";
-import { useAuth } from "@/app/providers/AuthProvider";
 import type {
   MemberProfile,
   MembershipPlan,
@@ -272,19 +271,30 @@ export const memberStore = {
     };
     notify();
   },
+
+  addOrder: (order: Order) => {
+    state = {
+      ...state,
+      orders: [order, ...state.orders],
+      notifications: [
+        {
+          id: `NTF-${Date.now()}`,
+          title: `Order Confirmed: #${order.id}`,
+          message: `Your Pro Shop order of ₹${order.total.toLocaleString("en-IN")} has been placed successfully.`,
+          category: "Orders",
+          read: false,
+          timestamp: Date.now(),
+          link: `/app/orders/${order.id}`,
+        },
+        ...state.notifications,
+      ],
+    };
+    notify();
+  },
 };
 
 export function useMember() {
   const store = useSyncExternalStore(subscribe, getSnapshot);
-  const { user } = useAuth();
-  const profile = user?.id
-    ? {
-        ...store.profile,
-        id: user.id,
-        name: user.name,
-        ...(user.email ? { email: user.email } : {}),
-      }
-    : store.profile;
 
   const switchMember = useCallback((key: string) => {
     memberStore.switchMember(key);
@@ -325,11 +335,14 @@ export function useMember() {
     memberStore.payInvoice(id);
   }, []);
 
+  const addOrder = useCallback((order: Order) => {
+    memberStore.addOrder(order);
+  }, []);
+
   const unreadCount = store.notifications.filter((n) => !n.read).length;
 
   return {
     ...store,
-    profile,
     unreadCount,
     switchMember,
     renewMembership,
@@ -340,5 +353,6 @@ export function useMember() {
     markNotificationRead,
     markAllNotificationsRead,
     payInvoice,
+    addOrder,
   };
 }

@@ -10,6 +10,7 @@ import com.bookmycourt.admin.dto.ClubSettingResponse;
 import com.bookmycourt.admin.dto.TaxRateRequest;
 import com.bookmycourt.admin.dto.TaxRateResponse;
 import com.bookmycourt.admin.dto.UpdateClubProfileRequest;
+import com.bookmycourt.admin.entity.ClubOpeningHours;
 import com.bookmycourt.admin.service.AdminService;
 import com.bookmycourt.common.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -38,7 +39,12 @@ public class AdminController {
         this.admin = admin;
     }
 
-    @PutMapping("/profile")
+    @GetMapping({"/profile", "/club-profile"})
+    public ApiResponse<ClubPublicResponse> getProfile() {
+        return ApiResponse.success("Profile loaded", admin.getProfile());
+    }
+
+    @PutMapping({"/profile", "/club-profile"})
     public ApiResponse<ClubPublicResponse> updateProfile(@RequestBody UpdateClubProfileRequest request) {
         return ApiResponse.success("Profile updated", admin.updateProfile(request));
     }
@@ -60,6 +66,17 @@ public class AdminController {
         return ApiResponse.success("Holiday deleted", null);
     }
 
+    @GetMapping("/settings/{key}")
+    public ApiResponse<ClubSettingResponse> getSetting(@PathVariable String key) {
+        return ApiResponse.success("Setting loaded", admin.getSetting(key));
+    }
+
+    @PutMapping("/settings/{key}")
+    public ApiResponse<ClubSettingResponse> updateSettingByKey(@PathVariable String key, @RequestBody ClubSettingRequest request) {
+        ClubSettingRequest req = new ClubSettingRequest(key, request.settingValue(), request.description(), request.updatedByUserId());
+        return ApiResponse.success("Setting saved", admin.setSetting(req));
+    }
+
     @PostMapping("/settings")
     public ApiResponse<ClubSettingResponse> setSetting(@Valid @RequestBody ClubSettingRequest request) {
         return ApiResponse.success("Setting saved", admin.setSetting(request));
@@ -70,10 +87,25 @@ public class AdminController {
         return ApiResponse.success("Settings loaded", admin.listSettings());
     }
 
+    @GetMapping("/opening-hours")
+    public ApiResponse<List<ClubOpeningHours>> getOpeningHours() {
+        return ApiResponse.success("Opening hours loaded", admin.getOpeningHours());
+    }
+
+    @PutMapping("/opening-hours")
+    public ApiResponse<List<ClubOpeningHours>> updateOpeningHours(@RequestBody List<ClubOpeningHours> hours) {
+        return ApiResponse.success("Opening hours updated", admin.updateOpeningHours(hours));
+    }
+
     @PostMapping("/tax-rates")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TaxRateResponse> createTaxRate(@Valid @RequestBody TaxRateRequest request) {
         return ApiResponse.success("Tax rate created", admin.createTaxRate(request));
+    }
+
+    @PutMapping("/tax-rates/{id}")
+    public ApiResponse<TaxRateResponse> updateTaxRate(@PathVariable UUID id, @Valid @RequestBody TaxRateRequest request) {
+        return ApiResponse.success("Tax rate updated", admin.updateTaxRate(id, request));
     }
 
     @GetMapping("/tax-rates")

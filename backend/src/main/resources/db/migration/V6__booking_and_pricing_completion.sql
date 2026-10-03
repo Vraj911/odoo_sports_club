@@ -1,0 +1,55 @@
+-- V6: Booking completion, pricing rule enhancement, social templates, and membership fields
+
+-- 1. Pricing Rule
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS sport VARCHAR(30);
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 0;
+
+-- 2. Membership
+ALTER TABLE membership ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) NOT NULL DEFAULT 'UNPAID';
+ALTER TABLE membership ADD COLUMN IF NOT EXISTS payment_policy VARCHAR(20) NOT NULL DEFAULT 'PAY_NOW';
+ALTER TABLE membership ADD COLUMN IF NOT EXISTS proration_note TEXT;
+
+-- 3. Booking
+ALTER TABLE booking ADD COLUMN IF NOT EXISTS price_breakdown TEXT;
+ALTER TABLE booking ADD COLUMN IF NOT EXISTS payment_policy VARCHAR(20) NOT NULL DEFAULT 'PAY_NOW';
+ALTER TABLE booking ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'ONLINE';
+ALTER TABLE booking ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
+ALTER TABLE booking ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE booking ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE booking DROP CONSTRAINT IF EXISTS booking_payment_chk;
+ALTER TABLE booking ADD CONSTRAINT booking_payment_chk 
+    CHECK (payment_status IN ('UNPAID','PENDING','PAID','REFUNDED','DUE'));
+
+-- 4. Occupancy
+ALTER TABLE occupancy ADD COLUMN IF NOT EXISTS reason TEXT;
+ALTER TABLE occupancy ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES app_user(id) ON DELETE SET NULL;
+
+-- 5. Social Template
+CREATE TABLE IF NOT EXISTS social_template (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    court_id UUID NOT NULL REFERENCES court(id) ON DELETE CASCADE,
+    weekday SMALLINT NOT NULL CHECK (weekday BETWEEN 1 AND 7),
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    capacity INT NOT NULL DEFAULT 8,
+    price_by_tier JSONB,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE social_session ADD COLUMN IF NOT EXISTS template_id UUID REFERENCES social_template(id) ON DELETE SET NULL;
+ALTER TABLE social_session ADD COLUMN IF NOT EXISTS price_by_tier JSONB;
+
+ALTER TABLE social_participant ADD COLUMN IF NOT EXISTS price NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE social_participant ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) NOT NULL DEFAULT 'UNPAID';
+
+-- 6. Waitlist
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS offered_at TIMESTAMPTZ;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS offer_expires_at TIMESTAMPTZ;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS court_slot_start TIMESTAMPTZ;
+
+ALTER TABLE waitlist DROP CONSTRAINT IF EXISTS waitlist_status_chk;
+ALTER TABLE waitlist ADD CONSTRAINT waitlist_status_chk 
+    CHECK (status IN ('WAITING','OFFERED','FULFILLED','EXPIRED','CANCELLED'));

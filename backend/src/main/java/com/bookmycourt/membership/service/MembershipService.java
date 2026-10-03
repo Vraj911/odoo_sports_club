@@ -1,214 +1,278 @@
 package com.bookmycourt.membership.service;
 
-import com.bookmycourt.common.exception.AuthFailedException;
-import com.bookmycourt.common.exception.NotFoundException;
-import com.bookmycourt.membership.dto.LoginRequest;
-import com.bookmycourt.membership.dto.MemberResponse;
-import com.bookmycourt.membership.dto.PlanResponse;
-import com.bookmycourt.membership.dto.RegisterRequest;
-import com.bookmycourt.membership.entity.AppUser;
+import com.bookmycourt.common.audit.AuditService;
+import com.bookmycourt.common.error.DomainException;
+import com.bookmycourt.common.error.ErrorCode;
+import com.bookmycourt.common.event.DomainEventPublisher;
+import com.bookmycourt.common.event.Events;
+import com.bookmycourt.common.event.events.MembershipEvents.MembershipActivated;
+import com.bookmycourt.common.event.events.MembershipEvents.MembershipPurchased;
+import com.bookmycourt.common.event.events.MembershipEvents.MembershipRenewed;
+import com.bookmycourt.common.event.events.MembershipEvents.MembershipTierChanged;
+import com.bookmycourt.common.money.Money;
+import com.bookmycourt.membership.dto.MembershipResponse;
+import com.bookmycourt.membership.dto.MembershipStatusRequest;
 import com.bookmycourt.membership.entity.Member;
 import com.bookmycourt.membership.entity.Membership;
 import com.bookmycourt.membership.entity.Plan;
 import com.bookmycourt.membership.mapper.MemberMapper;
-import com.bookmycourt.membership.repository.AppUserRepository;
 import com.bookmycourt.membership.repository.MemberRepository;
 import com.bookmycourt.membership.repository.MembershipRepository;
 import com.bookmycourt.membership.repository.PlanRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.Period;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class MembershipService {
 
-    private final AppUserRepository users;
     private final MemberRepository members;
     private final MembershipRepository memberships;
     private final PlanRepository plans;
     private final MemberMapper mapper;
-    private final PasswordEncoder passwords;
+    private final AuditService auditService;
+    private final DomainEventPublisher eventPublisher;
+    private final Clock clock;
 
     public MembershipService(
-            AppUserRepository users,
             MemberRepository members,
             MembershipRepository memberships,
             PlanRepository plans,
             MemberMapper mapper,
-            PasswordEncoder passwords) {
-        this.users = users;
+            AuditService auditService,
+            DomainEventPublisher eventPublisher,
+            Clock clock) {
         this.members = members;
         this.memberships = memberships;
         this.plans = plans;
         this.mapper = mapper;
-        this.passwords = passwords;
+        this.auditService = auditService;
+        this.eventPublisher = eventPublisher;
+        this.clock = clock;
+    }
+
+    public record PurchaseRequest(
+            UUID memberId,
+            UUID planId,
+            LocalDate startDate,
+            String paymentPolicy
+    ) {
     }
 
     @Transactional
-    public MemberResponse register(RegisterRequest request) {
-        if ((request.email() == null || request.email().isBlank())
-                && (request.phone() == null || request.phone().isBlank())) {
-            throw new AuthFailedException("Email or phone is required");
+    public MembershipResponse purchase(PurchaseRequest req) {
+        Member member = members.findById(req.memberId())
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Member not found: " + req.memberId()));
+        Plan plan = plans.findById(req.planId())
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Plan not found: " + req.planId()));
+
+        LocalDate startDate = req.startDate() != null ? req.startDate() : LocalDate.now(clock);
+
+        // Check if member already has an ACTIVE or EXPIRING_SOON membership overlapping startDate
+        boolean hasOverlap = memberships.findByMember_IdOrderByStartDateDesc(member.getId()).stream()
+                .anyMatch(m -> ("ACTIVE".equalsIgnoreCase(m.getStatus()) || "EXPIRING_SOON".equalsIgnoreCase(m.getStatus()))
+                        && !startDate.isBefore(m.getStartDate()) && !startDate.isAfter(m.getEndDate()));
+        if (hasOverlap) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Member already has an active membership for this period");
         }
-        if (request.email() != null && !request.email().isBlank()
-                && users.findByEmailIgnoreCase(request.email()).isPresent()) {
-            throw new AuthFailedException("Email already registered");
+
+        // Validate Junior plan age
+        if ("JUNIOR".equalsIgnoreCase(plan.getName()) && member.getDateOfBirth() != null) {
+            int age = Period.between(member.getDateOfBirth(), startDate).getYears();
+            if (age >= 18) {
+                throw new DomainException(ErrorCode.VALIDATION_FAILED, "Junior plan is restricted to members under 18 years old");
+            }
         }
-        AppUser user = new AppUser();
-        user.setEmail(blankToNull(request.email()));
-        user.setPhone(blankToNull(request.phone()));
-        user.setPasswordHash(passwords.encode(request.password()));
-        user.setFirstName(request.firstName());
-        user.setLastName(request.lastName());
-        user.setRole("MEMBER");
-        users.save(user);
 
-        Member member = new Member();
-        member.setUser(user);
-        member.setMemberCode(nextMemberCode());
-        member.setFirstName(request.firstName());
-        member.setLastName(request.lastName());
-        member.setEmail(blankToNull(request.email()));
-        member.setPhone(blankToNull(request.phone()));
-        member.setDateOfBirth(request.dateOfBirth());
-        member.setGuardianName(request.guardianName());
-        member.setGuardianPhone(request.guardianPhone());
-        member.setGuardianEmail(request.guardianEmail());
-        members.save(member);
-        return mapper.toResponse(member, null, user.getRole());
+        Membership m = new Membership();
+        m.setMember(member);
+        m.setPlan(plan);
+        m.setStartDate(startDate);
+        m.setEndDate(startDate.plusDays(plan.getValidityDays() - 1L));
+        m.setStatus("PENDING_PAYMENT");
+        m.setPaymentStatus("UNPAID");
+        m.setPaymentPolicy(req.paymentPolicy() != null ? req.paymentPolicy() : "PAY_NOW");
+        m.setPricePaid(BigDecimal.ZERO);
+        memberships.save(m);
+
+        eventPublisher.publish(new MembershipPurchased(
+                Events.nextId(),
+                Events.now(clock),
+                m.getId(),
+                member.getId(),
+                plan.getId()
+        ));
+
+        return mapper.toResponse(m);
     }
 
     @Transactional
-    public MemberResponse login(LoginRequest request) {
-        AppUser user = users.findByEmailIgnoreCase(request.login())
-                .or(() -> users.findByPhone(request.login()))
-                .orElseThrow(() -> new AuthFailedException("Invalid credentials"));
-        if (!user.isActive() || !passwords.matches(request.password(), user.getPasswordHash())) {
-            throw new AuthFailedException("Invalid credentials");
+    public MembershipResponse renew(UUID memberId, UUID planId) {
+        Member member = members.findById(memberId)
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Member not found: " + memberId));
+
+        LocalDate today = LocalDate.now(clock);
+        Optional<Membership> latestOpt = memberships.findByMember_IdOrderByStartDateDesc(memberId).stream().findFirst();
+
+        Plan plan = planId != null
+                ? plans.findById(planId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Plan not found"))
+                : latestOpt.map(Membership::getPlan).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "No previous plan to renew"));
+
+        LocalDate newStart = today;
+        UUID previousId = null;
+        if (latestOpt.isPresent()) {
+            Membership prev = latestOpt.get();
+            previousId = prev.getId();
+            if (prev.getEndDate().isAfter(today) || prev.getEndDate().isEqual(today)) {
+                newStart = prev.getEndDate().plusDays(1);
+            }
         }
-        user.setLastLoginAt(Instant.now());
-        Member member = members.findByUser_Id(user.getId())
-                .orElseThrow(() -> new NotFoundException("Member profile not found"));
-        Membership current = memberships.findCurrent(member.getId(), LocalDate.now()).orElse(null);
-        return mapper.toResponse(member, current, user.getRole());
-    }
 
-    @Transactional(readOnly = true)
-    public List<MemberResponse> listMembers() {
-        return members.findAll().stream().map(member -> {
-            String role = member.getUser() == null ? "MEMBER" : member.getUser().getRole();
-            Membership current = memberships.findCurrent(member.getId(), LocalDate.now()).orElse(null);
-            return mapper.toResponse(member, current, role);
-        }).toList();
-    }
-
-    @Transactional(readOnly = true)
-    public MemberResponse getMember(UUID id) {
-        Member member = members.findById(id).orElseThrow(() -> new NotFoundException("Member not found"));
-        String role = member.getUser() == null ? "MEMBER" : member.getUser().getRole();
-        Membership current = memberships.findCurrent(member.getId(), LocalDate.now()).orElse(null);
-        return mapper.toResponse(member, current, role);
-    }
-
-    @Transactional(readOnly = true)
-    public List<PlanResponse> listPlans() {
-        return plans.findByActiveTrue().stream().map(mapper::toResponse).toList();
-    }
-
-    @Transactional
-    public com.bookmycourt.membership.dto.MembershipResponse subscribe(com.bookmycourt.membership.dto.CreateMembershipRequest request) {
-        Member member = members.findById(request.memberId())
-                .orElseThrow(() -> new NotFoundException("Member not found"));
-        Plan plan = plans.findById(request.planId())
-                .orElseThrow(() -> new NotFoundException("Plan not found"));
-
-        Membership membership = new Membership();
-        membership.setMember(member);
-        membership.setPlan(plan);
-        LocalDate start = LocalDate.now();
-        membership.setStartDate(start);
-        membership.setEndDate(start.plusDays(plan.getValidityDays()));
-        membership.setStatus("ACTIVE");
-        membership.setPricePaid(request.pricePaid() != null ? request.pricePaid() : java.math.BigDecimal.ZERO);
-        memberships.save(membership);
-        return mapper.toResponse(membership);
-    }
-
-    @Transactional
-    public com.bookmycourt.membership.dto.MembershipResponse renew(UUID membershipId) {
-        Membership old = memberships.findById(membershipId)
-                .orElseThrow(() -> new NotFoundException("Membership not found"));
-        LocalDate start = old.getEndDate().isBefore(LocalDate.now()) ? LocalDate.now() : old.getEndDate().plusDays(1);
         Membership renewal = new Membership();
-        renewal.setMember(old.getMember());
-        renewal.setPlan(old.getPlan());
-        renewal.setPreviousMembershipId(old.getId());
-        renewal.setStartDate(start);
-        renewal.setEndDate(start.plusDays(old.getPlan().getValidityDays()));
+        renewal.setMember(member);
+        renewal.setPlan(plan);
+        renewal.setPreviousMembershipId(previousId);
+        renewal.setStartDate(newStart);
+        renewal.setEndDate(newStart.plusDays(plan.getValidityDays() - 1L));
         renewal.setStatus("ACTIVE");
-        renewal.setPricePaid(old.getPricePaid());
+        renewal.setPaymentStatus("PAID");
+        renewal.setPricePaid(BigDecimal.ZERO);
         memberships.save(renewal);
+
+        eventPublisher.publish(new MembershipRenewed(
+                Events.nextId(),
+                Events.now(clock),
+                renewal.getId(),
+                member.getId(),
+                plan.getId()
+        ));
+
         return mapper.toResponse(renewal);
     }
 
     @Transactional
-    public com.bookmycourt.membership.dto.MembershipResponse updateStatus(UUID membershipId, com.bookmycourt.membership.dto.MembershipStatusRequest request) {
-        Membership membership = memberships.findById(membershipId)
-                .orElseThrow(() -> new NotFoundException("Membership not found"));
-        membership.setStatus(request.status());
-        if ("SUSPENDED".equalsIgnoreCase(request.status())) {
-            membership.setSuspensionReason(request.reason() != null && !request.reason().isBlank() ? request.reason() : "Administrative suspension");
-        } else if ("CANCELLED".equalsIgnoreCase(request.status())) {
-            membership.setCancellationReason(request.reason() != null && !request.reason().isBlank() ? request.reason() : "Member cancellation");
+    public MembershipResponse changePlan(UUID membershipId, UUID newPlanId, LocalDate effectiveDate) {
+        Membership old = memberships.findById(membershipId)
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Membership not found: " + membershipId));
+        Plan newPlan = plans.findById(newPlanId)
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Plan not found: " + newPlanId));
+
+        LocalDate today = LocalDate.now(clock);
+        if (effectiveDate == null || effectiveDate.isBefore(today)) {
+            effectiveDate = today;
         }
-        memberships.save(membership);
-        return mapper.toResponse(membership);
+
+        int unusedDays = Math.max(0, (int) (old.getEndDate().toEpochDay() - effectiveDate.toEpochDay() + 1));
+        Money oldDailyRate = Money.ofRupees(BigDecimal.valueOf(10)); // Baseline daily unit
+        Money newDailyRate = Money.ofRupees(BigDecimal.valueOf(15));
+        var proration = ProrationCalculator.compute(unusedDays, oldDailyRate, newDailyRate);
+
+        old.setEndDate(effectiveDate.minusDays(1));
+        memberships.save(old);
+
+        Membership newMembership = new Membership();
+        newMembership.setMember(old.getMember());
+        newMembership.setPlan(newPlan);
+        newMembership.setPreviousMembershipId(old.getId());
+        newMembership.setStartDate(effectiveDate);
+        newMembership.setEndDate(effectiveDate.plusDays(newPlan.getValidityDays() - 1L));
+        newMembership.setStatus("ACTIVE");
+        newMembership.setProrationNote(proration.note());
+        newMembership.setPricePaid(proration.difference().isPositive() ? proration.difference().toRupees() : BigDecimal.ZERO);
+        memberships.save(newMembership);
+
+        eventPublisher.publish(new MembershipTierChanged(
+                Events.nextId(),
+                Events.now(clock),
+                old.getMember().getId(),
+                old.getPlan().getName(),
+                newPlan.getName(),
+                effectiveDate
+        ));
+
+        auditService.record("MEMBERSHIP_TIER_CHANGE", "MEMBERSHIP", newMembership.getId(),
+                Map.of("oldPlan", old.getPlan().getName(), "newPlan", newPlan.getName(), "proration", proration.note()));
+
+        return mapper.toResponse(newMembership);
+    }
+
+    @Transactional
+    public MembershipResponse suspend(UUID membershipId, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Suspension reason is mandatory");
+        }
+        Membership m = memberships.findById(membershipId)
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Membership not found: " + membershipId));
+        m.setStatus("SUSPENDED");
+        m.setSuspensionReason(reason.trim());
+        memberships.save(m);
+
+        auditService.record("MEMBERSHIP_SUSPEND", "MEMBERSHIP", m.getId(), Map.of("reason", reason));
+        return mapper.toResponse(m);
+    }
+
+    @Transactional
+    public MembershipResponse cancel(UUID membershipId, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Cancellation reason is mandatory");
+        }
+        Membership m = memberships.findById(membershipId)
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Membership not found: " + membershipId));
+        m.setStatus("CANCELLED");
+        m.setCancellationReason(reason.trim());
+        memberships.save(m);
+
+        auditService.record("MEMBERSHIP_CANCEL", "MEMBERSHIP", m.getId(), Map.of("reason", reason));
+        return mapper.toResponse(m);
     }
 
     @Transactional(readOnly = true)
-    public List<com.bookmycourt.membership.dto.MembershipResponse> getMembershipsForMember(UUID memberId) {
+    public String tierAt(UUID memberId, OffsetDateTime at) {
+        if (memberId == null) {
+            return "GUEST";
+        }
+        LocalDate date = at != null ? at.toLocalDate() : LocalDate.now(clock);
+        return memberships.findByMember_IdOrderByStartDateDesc(memberId).stream()
+                .filter(m -> !date.isBefore(m.getStartDate()) && !date.isAfter(m.getEndDate()))
+                .filter(m -> !"SUSPENDED".equalsIgnoreCase(m.getStatus()) &&
+                        !"CANCELLED".equalsIgnoreCase(m.getStatus()) &&
+                        !"PENDING_PAYMENT".equalsIgnoreCase(m.getStatus()))
+                .findFirst()
+                .map(m -> m.getPlan().getName())
+                .orElse("GUEST");
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Plan> activePlan(UUID memberId, LocalDate date) {
+        if (memberId == null) return Optional.empty();
+        LocalDate target = date != null ? date : LocalDate.now(clock);
+        return memberships.findByMember_IdOrderByStartDateDesc(memberId).stream()
+                .filter(m -> !target.isBefore(m.getStartDate()) && !target.isAfter(m.getEndDate()))
+                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) || "EXPIRING_SOON".equalsIgnoreCase(m.getStatus()))
+                .map(Membership::getPlan)
+                .findFirst();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MembershipResponse> getMembershipsForMember(UUID memberId) {
         return memberships.findByMember_IdOrderByStartDateDesc(memberId).stream()
                 .map(mapper::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public com.bookmycourt.membership.dto.MembershipResponse getMembership(UUID id) {
+    public MembershipResponse getMembership(UUID id) {
         Membership membership = memberships.findById(id)
-                .orElseThrow(() -> new NotFoundException("Membership not found"));
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Membership not found: " + id));
         return mapper.toResponse(membership);
-    }
-
-    @Transactional
-    public MemberResponse updateMember(UUID id, com.bookmycourt.membership.dto.UpdateMemberRequest request) {
-        Member member = members.findById(id).orElseThrow(() -> new NotFoundException("Member not found"));
-        if (request.firstName() != null && !request.firstName().isBlank()) member.setFirstName(request.firstName());
-        if (request.lastName() != null && !request.lastName().isBlank()) member.setLastName(request.lastName());
-        if (request.email() != null) member.setEmail(blankToNull(request.email()));
-        if (request.phone() != null) member.setPhone(blankToNull(request.phone()));
-        if (request.address() != null) member.setAddress(blankToNull(request.address()));
-        if (request.dateOfBirth() != null) member.setDateOfBirth(request.dateOfBirth());
-        if (request.guardianName() != null) member.setGuardianName(blankToNull(request.guardianName()));
-        if (request.guardianPhone() != null) member.setGuardianPhone(blankToNull(request.guardianPhone()));
-        if (request.guardianEmail() != null) member.setGuardianEmail(blankToNull(request.guardianEmail()));
-        members.save(member);
-
-        String role = member.getUser() == null ? "MEMBER" : member.getUser().getRole();
-        Membership current = memberships.findCurrent(member.getId(), LocalDate.now()).orElse(null);
-        return mapper.toResponse(member, current, role);
-    }
-
-    private String nextMemberCode() {
-        long n = members.count() + 1;
-        return "BMC-" + String.format("%04d", n);
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
     }
 }

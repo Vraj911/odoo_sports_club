@@ -30,6 +30,5 @@ public interface PricingRuleRepository extends JpaRepository<PricingRule, UUID> 
             @Param("customerType") String customerType,
             @Param("dayType") String dayType,
             @Param("indoorOutdoor") String indoorOutdoor,
-            @Param("start") LocalTime start,
-            @Param("onDate") LocalDate onDate);
+    List<PricingRule> findByActiveTrue();
 }

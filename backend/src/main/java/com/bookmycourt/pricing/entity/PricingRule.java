@@ -40,6 +40,12 @@ public class PricingRule extends BaseEntity {
     @Column(name = "time_end", nullable = false)
     private LocalTime timeEnd;
 
+    @Column(name = "sport")
+    private String sport;
+
+    @Column(name = "priority", nullable = false)
+    private int priority = 0;
+
     @Column(nullable = false)
     private BigDecimal price;
 

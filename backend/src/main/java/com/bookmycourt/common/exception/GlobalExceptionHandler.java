@@ -19,6 +19,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import com.bookmycourt.common.error.DomainException;
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -26,6 +29,12 @@ public class GlobalExceptionHandler {
 
     public GlobalExceptionHandler(BookingMapper bookingMapper) {
         this.bookingMapper = bookingMapper;
+    }
+
+    @ExceptionHandler(DomainException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleDomainException(DomainException ex) {
+        return ResponseEntity.status(ex.getErrorCode().getHttpStatus())
+                .body(ApiResponse.failure(ex.getErrorCode().name() + ": " + ex.getMessage(), ex.getDetails().isEmpty() ? null : ex.getDetails()));
     }
 
     @ExceptionHandler(SlotTakenException.class)

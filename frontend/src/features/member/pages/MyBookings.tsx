@@ -21,7 +21,7 @@ import { useToast } from "@/components/ui/Toast";
 import { AppLink } from "@/app/router/links";
 import type { Booking, Sport } from "@/features/booking/types";
 import { SPORT_LABELS } from "@/features/booking/types";
-import { useBookings } from "@/features/booking/useBookings";
+import { useMemberBookings } from "@/features/booking/bookingStore";
 import { BookingCard } from "@/features/member/components/BookingCard";
 import { CancelBookingDialog } from "@/features/member/components/CancelBookingDialog";
 import { RescheduleModal } from "@/features/member/components/RescheduleModal";
@@ -31,7 +31,7 @@ import { downloadCalendarEvent } from "@/lib/calendar";
 type BookingTab = "upcoming" | "past" | "cancelled" | "waitlist";
 
 export default function MyBookings() {
-  const { bookings, cancelBooking } = useBookings();
+  const { bookings, cancelBooking } = useMemberBookings();
   const toast = useToast();
 
   const [activeTab, setActiveTab] = useState<BookingTab>("upcoming");
@@ -138,12 +138,20 @@ export default function MyBookings() {
   }, [categorized, activeTab, sportFilter, searchQuery]);
 
   // Action handlers
-  const handleConfirmCancel = async (id: string, reason: string) => {
-    try {
-      await cancelBooking(id, reason);
-      toast.success("Booking Cancelled", "The slot has been released back to availability.");
-    } catch {
-      toast.error("Cancellation failed", "The booking could not be cancelled. Please try again.");
+  const handleConfirmCancel = (id: string, reason: string) => {
+    const res = cancelBooking(id, reason);
+    if (res.success && res.result) {
+      if (res.result.freeCancellation) {
+        toast.success(
+          "Booking Cancelled",
+          `Full refund of ₹${res.result.refundAmount} recorded against original payment (BKG-14).`
+        );
+      } else {
+        toast.warning(
+          "Late Cancellation Fee Applied",
+          `Within 4h window: 50% fee ₹${res.result.cancellationFee} applied. Refund ₹${res.result.refundAmount} credited.`
+        );
+      }
     }
   };
 

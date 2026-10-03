@@ -46,6 +46,15 @@ public class Membership extends BaseEntity {
     @Column(name = "payment_id")
     private UUID paymentId;
 
+    @Column(name = "payment_status")
+    private String paymentStatus = "UNPAID";
+
+    @Column(name = "payment_policy")
+    private String paymentPolicy = "PAY_NOW";
+
+    @Column(name = "proration_note")
+    private String prorationNote;
+
     @Column(name = "suspension_reason")
     private String suspensionReason;
 
