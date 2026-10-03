@@ -34,7 +34,13 @@ export function MemberLayout({ route, children }: { route: RouteMeta; children: 
       {/* Desktop Left Rail: Collapsed 88px, expanding to 240px on hover */}
       <aside className="group sticky top-0 hidden h-screen w-[88px] flex-col border-r border-chalk/14 bg-court-600/90 backdrop-blur-md transition-all duration-300 ease-out hover:w-[240px] z-30 md:flex">
         <div className="flex h-[72px] items-center px-6 overflow-hidden">
-          <Logo variant="full" size={28} />
+          <AppLink to="/app" className="flex items-center gap-2.5" aria-label="Member home">
+            <Logo
+              variant="full"
+              size={28}
+              textClassName="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            />
+          </AppLink>
         </div>
 
         <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto" aria-label="Member desktop sidebar">

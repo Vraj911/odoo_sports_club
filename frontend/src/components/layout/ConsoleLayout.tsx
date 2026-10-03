@@ -46,8 +46,15 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
           )}
         >
           {/* Logo header */}
-          <div className="flex h-[72px] items-center justify-between px-5 border-b border-chalk/14">
-            <Logo variant={collapsed ? "icon" : "full"} size={28} />
+          <div
+            className={cn(
+              "flex h-[72px] items-center border-b border-chalk/14 transition-all duration-300",
+              collapsed ? "justify-center px-2" : "justify-start px-5"
+            )}
+          >
+            <AppLink to={user?.role === "ADMIN" ? "/admin/audit-log" : "/"} className="flex items-center">
+              <Logo variant={collapsed ? "icon" : "full"} size={28} />
+            </AppLink>
           </div>
 
           {/* Permission-Filtered Navigation Groups */}

@@ -45,7 +45,7 @@ export function DigitalCard({ profile, className }: DigitalCardProps) {
         {/* Card Top Row: Club Logo + Plan Status Pill */}
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Logo size={26} />
+            <Logo variant="icon" size={26} />
             <div className="flex flex-col">
               <span className="text-xs font-bold tracking-widest uppercase text-chalk">
                 Champions Club

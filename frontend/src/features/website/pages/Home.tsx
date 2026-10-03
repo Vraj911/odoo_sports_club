@@ -5,7 +5,6 @@ import { PublicNavbar } from "@/components/layout/PublicNavbar";
 import { CourtLines } from "@/components/brand/CourtLines";
 import { PlayerSilhouette } from "@/components/brand/PlayerSilhouette";
 import { StatsBand } from "@/components/brand/StatsBand";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { NoiseOverlay } from "@/components/brand/NoiseOverlay";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -98,18 +97,6 @@ export default function Home({ route }: PageProps) {
               className="sm:hidden h-full w-full object-contain rotate-90"
             />
 
-            {/* Badge pill centred ON the net's top end, overlapping top court line */}
-            <div className="absolute top-[8%] sm:top-[12%] left-1/2 -translate-x-1/2 z-20">
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.4 }}
-              >
-                <Badge live className="shadow-lg border border-ink-900/10">
-                  Courts Available Now
-                </Badge>
-              </motion.div>
-            </div>
           </div>
 
           {/* Lower-left Player Silhouette */}

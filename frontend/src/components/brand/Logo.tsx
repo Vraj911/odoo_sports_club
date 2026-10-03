@@ -1,38 +1,43 @@
-import logoAsset from "@/assets/logo/bookmycourt-logo.png.asset.json";
+import logoImg from "@/assets/logo/bookmycourt-logo.png";
 import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/cn";
-
-/** Icon region inside the uploaded 1024×1024 logo (px). */
-const ICON = { x: 372, y: 307, w: 280, h: 290 };
 
 export interface LogoProps {
   variant?: "full" | "icon";
   size?: number;
   className?: string;
+  textClassName?: string;
 }
 
-/** bookmycourt mark, cropped from the uploaded logo asset; "full" adds the lowercase wordmark. */
-export function Logo({ variant = "full", size = 32, className }: LogoProps) {
-  const scale = size / ICON.w;
+/** bookmycourt mark with optional lowercase wordmark */
+export function Logo({ variant = "full", size = 32, className, textClassName }: LogoProps) {
   const icon = (
     <span
-      className="relative block shrink-0 overflow-hidden rounded-[22%]"
-      style={{ width: size, height: ICON.h * scale }}
+      className="relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md"
+      style={{ width: size, height: size }}
       aria-hidden={variant === "full"}
     >
       <img
-        src={logoAsset.url}
+        src={logoImg}
         alt={variant === "icon" ? APP_NAME : ""}
-        className="absolute max-w-none"
-        style={{ width: 1024 * scale, left: -ICON.x * scale, top: -ICON.y * scale }}
+        className="h-full w-full object-contain"
+        width={size}
+        height={size}
       />
     </span>
   );
-  if (variant === "icon") return <span className={className}>{icon}</span>;
+
+  if (variant === "icon") {
+    return <span className={cn("inline-flex items-center justify-center shrink-0", className)}>{icon}</span>;
+  }
+
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
+    <span className={cn("inline-flex items-center gap-2.5 shrink-0", className)}>
       {icon}
-      <span className="font-semibold tracking-tight text-chalk" style={{ fontSize: size * 0.62 }}>
+      <span
+        className={cn("font-semibold tracking-tight text-chalk whitespace-nowrap select-none", textClassName)}
+        style={{ fontSize: size * 0.62 }}
+      >
         {APP_NAME}
       </span>
     </span>
