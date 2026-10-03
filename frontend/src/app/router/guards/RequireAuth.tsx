@@ -6,6 +6,10 @@ import { PageSkeleton } from "@/components/shared/PageSkeleton";
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
   if (!ready) return <PageSkeleton />;
-  if (!user) return <GoTo to="/login" />;
+  if (!user) {
+    const returnUrl = typeof window !== "undefined" ? window.location.pathname : "";
+    const to = returnUrl && returnUrl !== "/" ? `/login?returnUrl=${encodeURIComponent(returnUrl)}` : "/login";
+    return <GoTo to={to} />;
+  }
   return <>{children}</>;
 }

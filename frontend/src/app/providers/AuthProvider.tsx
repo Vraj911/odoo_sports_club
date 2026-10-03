@@ -1,12 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AUTH_STORAGE_KEY, ROLE_LABELS } from "@/lib/constants";
-import type { AuthUser, Role } from "@/types/common";
+import type { AuthUser, PermissionGroup, PrimaryRole } from "@/types/common";
 
 interface AuthContextValue {
   user: AuthUser | null;
   /** False until sessionStorage has been read on the client. */
   ready: boolean;
-  loginAs: (role: Role) => void;
+  loginAs: (role: PrimaryRole, groups?: PermissionGroup[], name?: string) => void;
   logout: () => void;
 }
 
@@ -20,15 +20,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw) as AuthUser);
+      if (raw) {
+        const parsed = JSON.parse(raw) as AuthUser;
+        // Migration: ensure groups array exists (old sessions may lack it)
+        if (!Array.isArray(parsed.groups)) parsed.groups = [];
+        setUser(parsed);
+      }
     } catch {
       /* ignore */
     }
     setReady(true);
   }, []);
 
-  const loginAs = useCallback((role: Role) => {
-    const next: AuthUser = { name: `Demo ${ROLE_LABELS[role]}`, role };
+  const loginAs = useCallback((role: PrimaryRole, groups: PermissionGroup[] = [], name?: string) => {
+    const next: AuthUser = { name: name || `Demo ${ROLE_LABELS[role]}`, role, groups };
     sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
     setUser(next);
   }, []);

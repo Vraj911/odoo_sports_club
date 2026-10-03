@@ -4,7 +4,7 @@ import { Search, ArrowRight, CornerDownLeft } from "lucide-react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useGo } from "@/app/router/links";
 import { routeConfig, hasParams } from "@/app/router/routeConfig";
-import { canAccess } from "@/lib/permissions";
+import { canAccessRoute } from "@/lib/permissions";
 
 export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,7 +31,7 @@ export function CommandPalette() {
 
   const filteredRoutes = routeConfig
     .filter((r) => !hasParams(r.path))
-    .filter((r) => r.roles.length === 0 || canAccess(user?.role, r.roles))
+    .filter((r) => r.access.length === 0 || canAccessRoute(user, r.access))
     .filter((r) =>
       r.title.toLowerCase().includes(query.toLowerCase()) ||
       r.path.toLowerCase().includes(query.toLowerCase())

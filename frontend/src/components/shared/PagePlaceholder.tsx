@@ -3,7 +3,6 @@ import { CourtLines } from "@/components/brand/CourtLines";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { ROLE_LABELS } from "@/lib/constants";
 import type { PageProps } from "@/types/common";
 
 /** Labelled stub rendered by every route until its phase is built. */
@@ -28,7 +27,7 @@ export default function PagePlaceholder({ route, params }: PageProps) {
             <div className="flex flex-col gap-3">
               <p>Coming in Phase {route.phase}.</p>
               <p className="text-xs text-chalk/60">
-                Access: {route.roles.length ? route.roles.map((r) => ROLE_LABELS[r]).join(" · ") : "Public"}
+                Access: {route.access.length ? route.access.join(" · ") : "Public"}
               </p>
               {paramEntries.length > 0 && (
                 <p className="text-xs text-chalk/60">

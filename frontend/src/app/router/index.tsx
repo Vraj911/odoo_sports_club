@@ -2,7 +2,7 @@ import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "re
 import { AnimatePresence, motion } from "framer-motion";
 import { matchRoute } from "./routeConfig";
 import { RequireAuth } from "./guards/RequireAuth";
-import { RequireRole } from "./guards/RequireRole";
+import { RequireAccess } from "./guards/RequireRole";
 import { RoleHomeRedirect } from "./guards/RoleHomeRedirect";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { AuthLayout } from "@/components/layout/AuthLayout";
@@ -67,13 +67,13 @@ export function RouteRenderer({ pathname }: { pathname: string }) {
   );
 
   if (route.layout === "auth") return <RoleHomeRedirect>{page}</RoleHomeRedirect>;
-  if (route.roles.length === 0) return page;
+  if (route.access.length === 0) return page;
   return (
     <RequireAuth>
-      <RequireRole roles={route.roles}>{page}</RequireRole>
+      <RequireAccess access={route.access}>{page}</RequireAccess>
     </RequireAuth>
   );
 }
 
-const NOT_FOUND = { path: "*", title: "Out of bounds", layout: "public", roles: [], phase: 1, srsIds: [] } as unknown as RouteMeta;
+const NOT_FOUND = { path: "*", title: "Out of bounds", layout: "public", access: [], phase: 1, srsIds: [] } as unknown as RouteMeta;
 const FORBIDDEN = { ...NOT_FOUND, path: "/403", title: "Forbidden" } as RouteMeta;

@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { ReasonDialog } from "@/components/shared/ReasonDialog";
+import { AdminPinDialog } from "@/components/shared/AdminPinDialog";
 import { AvailabilityGrid } from "@/components/shared/AvailabilityGrid";
 import { MemberSearch } from "../components/MemberSearch";
 import {
@@ -65,7 +66,7 @@ export default function DeskWalkIn() {
   const [confirmedBooking, setConfirmedBooking] = useState<DeskBookingRecord | null>(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showSlotTakenModal, setShowSlotTakenModal] = useState(false);
-  const [showManagerOverrideModal, setShowManagerOverrideModal] = useState(false);
+  const [showAdminOverrideModal, setShowAdminOverrideModal] = useState(false);
   const [overrideApproved, setOverrideApproved] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -133,7 +134,7 @@ export default function DeskWalkIn() {
     }
 
     if (isCapExceeded && !overrideApproved) {
-      setShowManagerOverrideModal(true);
+      setShowAdminOverrideModal(true);
       return;
     }
 
@@ -600,20 +601,19 @@ export default function DeskWalkIn() {
         </div>
       </Modal>
 
-      {/* MANAGER OVERRIDE REASON DIALOG */}
-      <ReasonDialog
-        isOpen={showManagerOverrideModal}
-        onClose={() => setShowManagerOverrideModal(false)}
-        onConfirm={(reason, pin) => {
+      {/* ADMIN OVERRIDE REASON DIALOG */}
+      <AdminPinDialog
+        isOpen={showAdminOverrideModal}
+        onClose={() => setShowAdminOverrideModal(false)}
+        onConfirm={(reason) => {
           setOverrideApproved(true);
-          setShowManagerOverrideModal(false);
-          setToastMessage(`Manager override authorized by PIN: ${reason}`);
+          setShowAdminOverrideModal(false);
+          setToastMessage(`Admin override authorized: ${reason}`);
           setTimeout(() => setToastMessage(null), 3500);
         }}
-        title="Manager Booking Cap Override"
-        description="This member has reached the daily limit of 2 bookings. Manager PIN & audit justification required to proceed."
-        actionLabel="Authorize Override"
-        requirePin={true}
+        title="Admin Booking Cap Override"
+        description="This member has reached the daily limit of 2 bookings. Admin authorization & audit justification required to proceed."
+        overrideType="cap"
       />
     </div>
   );

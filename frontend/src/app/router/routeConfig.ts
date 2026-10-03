@@ -8,38 +8,44 @@ import {
   Link2, Settings, LandPlot, Timer, BadgeIndianRupee, Calculator, MessageSquare, CalendarOff, Coins, MailCheck,
   ShieldCheck, History, Sprout, type LucideIcon,
 } from "lucide-react";
-import { STAFF_ROLES } from "@/lib/constants";
-import type { LayoutKind, NavGroupKey, Phase, Role, RouteMeta } from "@/types/common";
+import type { LayoutKind, NavGroupKey, PermissionKey, Phase, RouteMeta } from "@/types/common";
 
-const PUBLIC: Role[] = [];
-const MEMBERS: Role[] = ["MEMBER", "GUARDIAN"];
-const DESK: Role[] = ["FRONT_DESK", "MANAGER", "OWNER_ADMIN"];
-const SHOP: Role[] = ["SHOP_STAFF", "MANAGER", "OWNER_ADMIN"];
-const BAR: Role[] = ["BAR_STAFF", "MANAGER", "OWNER_ADMIN"];
-const CRM: Role[] = ["FRONT_DESK", "MANAGER", "OWNER_ADMIN"];
-const FIN: Role[] = ["ACCOUNTANT", "MANAGER", "OWNER_ADMIN"];
-const HR: Role[] = ["MANAGER", "ACCOUNTANT", "OWNER_ADMIN"];
-const MGR: Role[] = ["MANAGER", "OWNER_ADMIN"];
-const OWN: Role[] = ["OWNER_ADMIN", "MANAGER"];
-const ADM: Role[] = ["OWNER_ADMIN"];
+// ─── Shorthand permission key arrays ──────────────────────────────────
+const PUBLIC: PermissionKey[] = [];                          // No authentication required
+const MEMBER: PermissionKey[] = ["member"];                   // MEMBER or ADMIN
+const ALL_STAFF: PermissionKey[] = ["staff"];                 // Any STAFF role or ADMIN
+const DESK: PermissionKey[] = ["FRONT_DESK"];                 // STAFF w/ FRONT_DESK or ADMIN
+const SHOP: PermissionKey[] = ["SHOP_INVENTORY"];              // STAFF w/ SHOP_INVENTORY or ADMIN
+const BAR: PermissionKey[] = ["POS_BAR"];                      // STAFF w/ POS_BAR or ADMIN
+const CRM_ACCESS: PermissionKey[] = ["CRM"];                   // STAFF w/ CRM or ADMIN
+const LEADS_ACCESS: PermissionKey[] = ["crm.leads.view"];     // FRONT_DESK or CRM or ADMIN
+const FIN: PermissionKey[] = ["FINANCE"];                      // STAFF w/ FINANCE or ADMIN
+const ADM: PermissionKey[] = ["admin"];                        // ADMIN only
 
 const r = (
   path: string,
   title: string,
   layout: LayoutKind,
-  roles: Role[],
+  access: PermissionKey[],
   phase: Phase,
   srsIds: string[],
   icon: LucideIcon,
   group?: NavGroupKey,
-): RouteMeta => ({ path, title, layout, roles, phase, srsIds, icon, ...(group ? { group } : {}) });
+): RouteMeta => ({ path, title, layout, access, phase, srsIds, icon, ...(group ? { group } : {}) });
 
-const c = (path: string, title: string, roles: Role[], phase: Phase, group: NavGroupKey, icon: LucideIcon, srsIds: string[] = []) =>
-  r(path, title, "console", roles, phase, srsIds, icon, group);
+const c = (
+  path: string,
+  title: string,
+  access: PermissionKey[],
+  phase: Phase,
+  group: NavGroupKey,
+  icon: LucideIcon,
+  srsIds: string[] = [],
+) => r(path, title, "console", access, phase, srsIds, icon, group);
 
 /** Single source of truth for routing AND navigation. */
 export const routeConfig: RouteMeta[] = [
-  // PUBLIC
+  // ─── PUBLIC (no login) ──────────────────────────────────────────────
   { ...r("/", "Home", "public", PUBLIC, 2, ["WEB-01"], Home), load: () => import("@/features/website/pages/Home") },
   r("/facilities", "Facilities", "public", PUBLIC, 8, ["WEB-01"], Building2),
   r("/plans", "Membership Plans", "public", PUBLIC, 8, ["WEB-02"], BadgeCheck),
@@ -52,32 +58,40 @@ export const routeConfig: RouteMeta[] = [
   r("/contact", "Contact", "public", PUBLIC, 8, ["WEB-07"], Mail),
   r("/share/:token", "Shared Report", "public", PUBLIC, 11, ["RPT-10"], Share2),
 
-  // AUTH
+  // ─── AUTH ───────────────────────────────────────────────────────────
   { ...r("/login", "Sign in", "auth", PUBLIC, 2, ["AUTH-01"], LogIn), load: () => import("@/features/auth/pages/LoginPage") },
   { ...r("/register", "Create account", "auth", PUBLIC, 2, ["AUTH-02"], UserPlus), load: () => import("@/features/auth/pages/RegisterPage") },
   { ...r("/forgot-password", "Forgot password", "auth", PUBLIC, 2, ["AUTH-03"], KeyRound), load: () => import("@/features/auth/pages/ForgotPasswordPage") },
   { ...r("/reset-password", "Reset password", "auth", PUBLIC, 2, ["AUTH-03"], KeyRound), load: () => import("@/features/auth/pages/ResetPasswordPage") },
 
-  // MEMBER
-  { ...r("/app", "Home", "member", MEMBERS, 4, [], LayoutDashboard), load: () => import("@/features/member/pages/MemberDashboard") },
-  { ...r("/app/book", "Book a Court", "member", MEMBERS, 3, ["BKG-07"], CalendarPlus), load: () => import("@/features/member/pages/BookCourt") },
-  { ...r("/app/social", "Social Play", "member", MEMBERS, 3, ["BKG-18"], Users), load: () => import("@/features/member/pages/SocialPlay") },
-  { ...r("/app/bookings", "My Bookings", "member", MEMBERS, 3, [], ListChecks), load: () => import("@/features/member/pages/MyBookings") },
-  { ...r("/app/bookings/:id", "Booking Detail", "member", MEMBERS, 3, [], ListChecks), load: () => import("@/features/member/pages/BookingDetail") },
-  r("/app/shop", "Shop", "member", MEMBERS, 6, [], ShoppingBag),
-  r("/app/cart", "Cart", "member", MEMBERS, 6, [], ShoppingCart),
-  r("/app/checkout", "Checkout", "member", MEMBERS, 6, [], CreditCard),
-  { ...r("/app/orders", "Orders", "member", MEMBERS, 4, [], Package), load: () => import("@/features/member/pages/OrdersPage") },
-  { ...r("/app/orders/:id", "Order Detail", "member", MEMBERS, 4, [], Package), load: () => import("@/features/member/pages/OrderDetailPage") },
-  { ...r("/app/tab", "Bar Tab", "member", MEMBERS, 4, ["BAR-06"], Beer), load: () => import("@/features/member/pages/BarTabPage") },
-  { ...r("/app/invoices", "Invoices", "member", MEMBERS, 4, [], Receipt), load: () => import("@/features/member/pages/InvoicesPage") },
-  { ...r("/app/invoices/:id", "Invoice Detail", "member", MEMBERS, 4, [], FileText), load: () => import("@/features/member/pages/InvoiceDetailPage") },
-  { ...r("/app/membership", "Membership", "member", MEMBERS, 4, ["MEM-09"], BadgeCheck), load: () => import("@/features/member/pages/MembershipPage") },
-  { ...r("/app/profile", "Profile", "member", MEMBERS, 4, ["MEM-17"], User), load: () => import("@/features/member/pages/ProfilePage") },
-  { ...r("/app/card", "Member Card", "member", MEMBERS, 4, ["MEM-02"], IdCard), load: () => import("@/features/member/pages/DigitalCardPage") },
-  { ...r("/app/notifications", "Notifications", "member", MEMBERS, 4, ["NTF-01"], Bell), load: () => import("@/features/member/pages/NotificationsPage") },
+  // ─── MEMBER PORTAL ──────────────────────────────────────────────────
+  { ...r("/app", "Home", "member", MEMBER, 4, [], LayoutDashboard), load: () => import("@/features/member/pages/MemberDashboard") },
+  { ...r("/app/book", "Book a Court", "member", MEMBER, 3, ["BKG-07"], CalendarPlus), load: () => import("@/features/member/pages/BookCourt") },
+  { ...r("/app/social", "Social Play", "member", MEMBER, 3, ["BKG-18"], Users), load: () => import("@/features/member/pages/SocialPlay") },
+  { ...r("/app/bookings", "My Bookings", "member", MEMBER, 3, [], ListChecks), load: () => import("@/features/member/pages/MyBookings") },
+  { ...r("/app/bookings/:id", "Booking Detail", "member", MEMBER, 3, [], ListChecks), load: () => import("@/features/member/pages/BookingDetail") },
+  r("/app/shop", "Shop", "member", MEMBER, 6, [], ShoppingBag),
+  r("/app/cart", "Cart", "member", MEMBER, 6, [], ShoppingCart),
+  r("/app/checkout", "Checkout", "member", MEMBER, 6, [], CreditCard),
+  { ...r("/app/orders", "Orders", "member", MEMBER, 4, [], Package), load: () => import("@/features/member/pages/OrdersPage") },
+  { ...r("/app/orders/:id", "Order Detail", "member", MEMBER, 4, [], Package), load: () => import("@/features/member/pages/OrderDetailPage") },
+  { ...r("/app/tab", "Bar & Tab", "member", MEMBER, 4, ["BAR-06"], Beer), load: () => import("@/features/member/pages/BarTabPage") },
+  { ...r("/app/invoices", "Invoices & Payments", "member", MEMBER, 4, [], Receipt), load: () => import("@/features/member/pages/InvoicesPage") },
+  { ...r("/app/invoices/:id", "Invoice Detail", "member", MEMBER, 4, [], FileText), load: () => import("@/features/member/pages/InvoiceDetailPage") },
+  { ...r("/app/membership", "Membership", "member", MEMBER, 4, ["MEM-09"], BadgeCheck), load: () => import("@/features/member/pages/MembershipPage") },
+  { ...r("/app/profile", "Profile", "member", MEMBER, 4, ["MEM-17"], User), load: () => import("@/features/member/pages/ProfilePage") },
+  { ...r("/app/card", "Member Card", "member", MEMBER, 4, ["MEM-02"], IdCard), load: () => import("@/features/member/pages/DigitalCardPage") },
+  { ...r("/app/notifications", "Notifications", "member", MEMBER, 4, ["NTF-01"], Bell), load: () => import("@/features/member/pages/NotificationsPage") },
 
-  // FRONT DESK
+  // ─── STAFF HUB & MY WORK ────────────────────────────────────────────
+  { ...c("/staff", "Staff Hub", ALL_STAFF, 5, "self", LayoutDashboard), load: () => import("@/features/staff/pages/StaffHub") },
+  c("/my", "My Work", ALL_STAFF, 10, "self", CircleUser),
+  c("/my/roster", "My Roster", ALL_STAFF, 10, "self", CalendarClock),
+  c("/my/clock", "Time Clock", ALL_STAFF, 10, "self", Fingerprint),
+  c("/my/leave", "My Leave", ALL_STAFF, 10, "self", Plane),
+  c("/my/payslips", "My Payslips", ALL_STAFF, 10, "self", Banknote),
+
+  // ─── FRONT DESK ─────────────────────────────────────────────────────
   { ...c("/desk", "Desk Overview", DESK, 5, "desk", ClipboardList), load: () => import("@/features/desk/pages/DeskOverview") },
   { ...c("/desk/register", "Register Member", DESK, 5, "desk", UserRoundPlus, ["MEM-01"]), load: () => import("@/features/desk/pages/RegisterMember") },
   { ...c("/desk/availability", "Availability", DESK, 5, "desk", CalendarDays), load: () => import("@/features/desk/pages/DeskAvailability") },
@@ -87,7 +101,7 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/desk/bookings", "Bookings", DESK, 5, "desk", ListChecks), load: () => import("@/features/desk/pages/DeskBookings") },
   { ...c("/desk/payments", "Payments", DESK, 5, "desk", Wallet), load: () => import("@/features/desk/pages/DeskPayments") },
 
-  // SHOP CONSOLE
+  // ─── SHOP CONSOLE ───────────────────────────────────────────────────
   c("/shop-console", "Point of Sale", SHOP, 6, "shop", Store),
   c("/shop-console/quick", "Quick Sale", SHOP, 6, "shop", Zap),
   c("/shop-console/orders", "Orders", SHOP, 6, "shop", Package),
@@ -99,23 +113,23 @@ export const routeConfig: RouteMeta[] = [
   c("/shop-console/restring", "Restringing", SHOP, 6, "shop", Wrench),
   c("/shop-console/reports", "Shop Reports", SHOP, 6, "shop", BarChart3),
 
-  // BAR + KDS
+  // ─── BAR + KDS ──────────────────────────────────────────────────────
   c("/bar", "Bar Floor", BAR, 7, "bar", Wine),
   c("/bar/table/:id", "Table", BAR, 7, "bar", Table2),
   c("/bar/tabs", "Open Tabs", BAR, 7, "bar", Beer),
   c("/bar/bill/:id", "Bill", BAR, 7, "bar", Receipt),
   c("/bar/shift", "Shift", BAR, 7, "bar", Clock),
-  c("/bar/closing", "Closing", BAR, 7, "bar", Lock),
-  c("/kds", "Kitchen Display", ["KITCHEN", "BAR_STAFF", "MANAGER"], 7, "bar", ChefHat),
+  c("/bar/closing", "Closing", ADM, 7, "bar", Lock), // ADMIN only
+  c("/kds", "Kitchen Display", BAR, 7, "bar", ChefHat),
 
-  // CRM
-  c("/crm", "CRM Overview", CRM, 8, "crm", Contact),
-  c("/crm/leads", "Leads", CRM, 8, "crm", Target),
-  c("/crm/leads/:id", "Lead Detail", CRM, 8, "crm", Target),
-  c("/crm/leads/:id/quote", "Quote", CRM, 8, "crm", FileSignature),
-  c("/crm/campaigns", "Campaigns", CRM, 8, "crm", Megaphone),
+  // ─── CRM ────────────────────────────────────────────────────────────
+  c("/crm", "CRM Overview", CRM_ACCESS, 8, "crm", Contact),
+  c("/crm/leads", "Leads", LEADS_ACCESS, 8, "crm", Target), // FRONT_DESK or CRM or ADMIN
+  c("/crm/leads/:id", "Lead Detail", LEADS_ACCESS, 8, "crm", Target), // FRONT_DESK or CRM or ADMIN
+  c("/crm/leads/:id/quote", "Quote", CRM_ACCESS, 8, "crm", FileSignature),
+  c("/crm/campaigns", "Campaigns", CRM_ACCESS, 8, "crm", Megaphone),
 
-  // FINANCE
+  // ─── FINANCE ────────────────────────────────────────────────────────
   c("/finance", "Finance Overview", FIN, 9, "finance", Landmark),
   c("/finance/invoices", "Invoices", FIN, 9, "finance", Receipt),
   c("/finance/invoices/:id", "Invoice Detail", FIN, 9, "finance", FileText),
@@ -129,34 +143,30 @@ export const routeConfig: RouteMeta[] = [
   c("/finance/reconciliation", "Reconciliation", FIN, 9, "finance", Scale),
   c("/finance/periods", "Periods", FIN, 9, "finance", CalendarRange),
 
-  // HR
-  c("/hr", "HR Overview", HR, 10, "hr", UserCog),
-  c("/hr/employees", "Employees", HR, 10, "hr", Users),
-  c("/hr/employees/:id", "Employee", HR, 10, "hr", User),
-  c("/hr/roster", "Roster", HR, 10, "hr", CalendarClock),
-  c("/hr/attendance", "Attendance", HR, 10, "hr", Fingerprint),
-  c("/hr/leave", "Leave", HR, 10, "hr", Plane),
-  c("/hr/payroll", "Payroll", HR, 10, "hr", Banknote),
-  c("/hr/payroll/:runId", "Payroll Run", HR, 10, "hr", Banknote),
-  c("/hr/holidays", "Holidays", HR, 10, "hr", PartyPopper),
-  c("/my", "My Work", STAFF_ROLES, 10, "self", CircleUser),
+  // ─── HR (ADMIN ONLY) ────────────────────────────────────────────────
+  c("/hr", "HR Overview", ADM, 10, "hr", UserCog),
+  c("/hr/employees", "Employees", ADM, 10, "hr", Users),
+  c("/hr/employees/:id", "Employee", ADM, 10, "hr", User),
+  c("/hr/roster", "Roster", ADM, 10, "hr", CalendarClock),
+  c("/hr/attendance", "Attendance", ADM, 10, "hr", Fingerprint),
+  c("/hr/leave", "Leave", ADM, 10, "hr", Plane),
+  c("/hr/payroll", "Payroll", ADM, 10, "hr", Banknote),
+  c("/hr/payroll/:runId", "Payroll Run", ADM, 10, "hr", Banknote),
+  c("/hr/holidays", "Holidays", ADM, 10, "hr", PartyPopper),
 
-  // MANAGER
-  c("/manager", "Manager Overview", MGR, 11, "manager", Gauge),
-  c("/manager/calendar", "Calendar", MGR, 11, "manager", CalendarDays),
-  c("/manager/utilisation", "Utilisation", MGR, 11, "manager", Activity),
-  c("/manager/overrides", "Overrides", MGR, 11, "manager", SlidersHorizontal),
-  c("/manager/blocks", "Court Blocks", MGR, 11, "manager", Ban),
-  c("/manager/approvals", "Approvals", MGR, 11, "manager", CheckCheck),
+  // ─── OWNER (ADMIN ONLY) ─────────────────────────────────────────────
+  c("/owner", "Owner Dashboard", ADM, 11, "owner", Crown),
+  c("/owner/reports", "Reports", ADM, 11, "owner", FileBarChart),
+  c("/owner/scheduled-reports", "Scheduled Reports", ADM, 11, "owner", CalendarClock),
+  c("/owner/share-links", "Share Links", ADM, 11, "owner", Link2),
 
-  // OWNER
-  c("/owner", "Owner Dashboard", OWN, 11, "owner", Crown),
-  c("/owner/reports", "Reports", OWN, 11, "owner", FileBarChart),
-  c("/owner/scheduled-reports", "Scheduled Reports", OWN, 11, "owner", CalendarClock),
-  c("/owner/share-links", "Share Links", OWN, 11, "owner", Link2),
-
-  // ADMIN
+  // ─── ADMIN (ADMIN ONLY - includes moved manager operations) ──────────
   c("/admin", "Admin Overview", ADM, 12, "admin", Settings),
+  c("/admin/calendar", "Operations Calendar", ADM, 11, "admin", CalendarDays),
+  c("/admin/utilisation", "Court Utilisation", ADM, 11, "admin", Activity),
+  c("/admin/overrides", "Admin Overrides", ADM, 11, "admin", SlidersHorizontal),
+  c("/admin/blocks", "Court Blocks", ADM, 11, "admin", Ban),
+  c("/admin/approvals", "Approvals", ADM, 11, "admin", CheckCheck),
   c("/admin/club", "Club", ADM, 12, "admin", Building2),
   c("/admin/courts", "Courts", ADM, 12, "admin", LandPlot),
   c("/admin/hours", "Opening Hours", ADM, 12, "admin", Timer),
@@ -167,6 +177,8 @@ export const routeConfig: RouteMeta[] = [
   c("/admin/leave-types", "Leave Types", ADM, 12, "admin", CalendarOff),
   c("/admin/salary-components", "Salary Components", ADM, 12, "admin", Coins),
   c("/admin/notification-templates", "Notification Templates", ADM, 12, "admin", MailCheck),
+  c("/admin/staff", "Staff Directory", ADM, 12, "admin", UserCog),
+  c("/admin/permission-groups", "Permission Groups", ADM, 12, "admin", ShieldCheck),
   c("/admin/users", "Users & Roles", ADM, 12, "admin", ShieldCheck),
   c("/admin/audit-log", "Audit Log", ADM, 12, "admin", History),
   c("/admin/seed", "Seed Data", ADM, 12, "admin", Sprout),
