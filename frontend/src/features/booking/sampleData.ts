@@ -11,16 +11,13 @@ import type {
   SocialWaitlistEntry,
 } from "./types";
 
-// ── Sample Courts ──
+// ── Sample Courts (Matched with Database UUIDs) ──
 export const COURTS: Court[] = [
-  { id: "tc-1", name: "Tennis 1", sport: "tennis", indoor: false },
-  { id: "tc-2", name: "Tennis 2", sport: "tennis", indoor: false },
-  { id: "tc-3", name: "Tennis 3", sport: "tennis", indoor: true },
-  { id: "pd-1", name: "Padel 1", sport: "padel", indoor: true },
-  { id: "pd-2", name: "Padel 2", sport: "padel", indoor: true },
-  { id: "bd-1", name: "Badminton 1", sport: "badminton", indoor: true },
-  { id: "bd-2", name: "Badminton 2", sport: "badminton", indoor: true },
-  { id: "cn-1", name: "Cricket Net 1", sport: "cricket-net", indoor: false },
+  { id: "6869edd3-d75d-4d32-9d70-2e641af5bf60", name: "Tennis 1", sport: "tennis", indoor: false },
+  { id: "0c0b020a-8926-469d-89ec-61ae84bf8a22", name: "Tennis 2", sport: "tennis", indoor: false },
+  { id: "ca6feb00-b627-420a-833e-c20f70b2e499", name: "Padel 1", sport: "padel", indoor: true },
+  { id: "8d6085df-2915-4fb3-93bc-ed2c5c587f81", name: "Badminton 1", sport: "badminton", indoor: true },
+  { id: "5a16e67f-4787-4c69-b81b-358217218e5a", name: "Cricket Net 1", sport: "cricket-net", indoor: false },
 ];
 
 // ── Opening / Closing ──

@@ -36,11 +36,15 @@ export interface ConfirmBookingRequest {
 export interface DirectBookingRequest {
   courtId: string;
   memberId?: string;
+  guestName?: string;
+  guestPhone?: string;
   date: string;
   startTime: string; // HH:mm
-  endTime: string; // HH:mm
-  sport: string;
+  endTime?: string; // HH:mm
+  sport?: string;
   memberTier?: string;
+  paymentPolicy?: string;
+  channel?: string;
   price?: number;
 }
 
@@ -92,7 +96,11 @@ export const bookingApi = {
     apiClient.post<BookingDto>("/api/bookings/confirm", data),
 
   createBooking: (data: DirectBookingRequest) =>
-    apiClient.post<BookingDto>("/api/bookings", data),
+    apiClient.post<BookingDto>("/api/bookings", {
+      ...data,
+      paymentPolicy: data.paymentPolicy || "PAY_AT_CLUB",
+      channel: data.channel || "ONLINE",
+    }),
 
   listBookings: (params?: { memberId?: string; courtId?: string; date?: string; status?: string }) =>
     apiClient.get<BookingDto[]>("/api/bookings", params),
