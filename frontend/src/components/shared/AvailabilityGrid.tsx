@@ -262,12 +262,16 @@ export function AvailabilityGrid({
   const scrollRef = useRef<HTMLDivElement>(null);
   const dateStrip = useMemo(() => getDateStrip(date), [date]);
   const courts = useMemo(() => COURTS.filter((c) => c.sport === sport), [sport]);
+  const effectiveGrid = useMemo(() => {
+    if (grid && grid.length > 0) return grid;
+    return generateInitialGrid(date, sport, []);
+  }, [grid, date, sport]);
 
   const sports: Sport[] = ["tennis", "padel", "badminton", "cricket-net"];
 
   // "Next available" quick jump
   const jumpToNextFree = useCallback(() => {
-    for (const row of grid) {
+    for (const row of effectiveGrid) {
       for (const cell of row) {
         if (cell.status === "free" && canFitSession(cell.time)) {
           onSelectSlot?.({ courtId: cell.courtId, time: cell.time });
@@ -275,7 +279,7 @@ export function AvailabilityGrid({
         }
       }
     }
-  }, [grid, onSelectSlot]);
+  }, [effectiveGrid, onSelectSlot]);
 
   // Determine the second half cell of a 60-min selection
   const getSecondHalfTime = (time: string): string | null => {
@@ -412,7 +416,7 @@ export function AvailabilityGrid({
               <Skeleton key={i} className="h-14 w-full rounded-lg" />
             ))}
           </div>
-        ) : grid.length === 0 ? (
+        ) : courts.length === 0 ? (
           <EmptyState
             title={`No ${SPORT_LABELS[sport]} courts available`}
             description="Try a different sport or date."
@@ -437,7 +441,7 @@ export function AvailabilityGrid({
               </thead>
               <tbody>
                 {courts.map((court, courtIdx) => {
-                  const row = grid[courtIdx];
+                  const row = effectiveGrid[courtIdx];
                   if (!row) return null;
 
                   return (

@@ -26,7 +26,7 @@ export function toDateStr(d: Date): string {
 export function useBookings(currentTier: MemberTier = "Gold") {
   const [sport, setSport] = useState<Sport>("tennis");
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(new Date()));
-  const [grid, setGrid] = useState<SlotCell[][]>([]);
+  const [grid, setGrid] = useState<SlotCell[][]>(() => generateInitialGrid(toDateStr(new Date()), "tennis", []));
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +66,8 @@ export function useBookings(currentTier: MemberTier = "Gold") {
       setGrid(newGrid);
       if (!silent) setLoading(false);
     } catch (e) {
+      console.warn("Could not fetch remote bookings, using local grid", e);
+      setGrid(generateInitialGrid(date, curSport, []));
       if (!silent) setLoading(false);
     }
   }, []);

@@ -230,6 +230,8 @@ export function generateInitialGrid(
         };
         return s;
       }
+      // Deterministic pseudo-random status for non-booked slots
+      const hash = (court.id + time + date).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
       if (hash % 11 === 0) {
         return {
           courtId: court.id,
