@@ -20,6 +20,8 @@ import com.bookmycourt.membership.mapper.MemberMapper;
 import com.bookmycourt.membership.repository.AppUserRepository;
 import com.bookmycourt.membership.repository.MemberRepository;
 import com.bookmycourt.membership.repository.MembershipRepository;
+import com.bookmycourt.membership.entity.Plan;
+import com.bookmycourt.membership.repository.PlanRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,6 +47,7 @@ public class MemberService {
     private final MemberRepository members;
     private final AppUserRepository users;
     private final MembershipRepository memberships;
+    private final PlanRepository plans;
     private final BookingRepository bookings;
     private final MemberMapper mapper;
     private final PasswordEncoder passwordEncoder;
@@ -55,6 +58,7 @@ public class MemberService {
     public MemberService(MemberRepository members,
                          AppUserRepository users,
                          MembershipRepository memberships,
+                         PlanRepository plans,
                          BookingRepository bookings,
                          MemberMapper mapper,
                          PasswordEncoder passwordEncoder,
@@ -64,6 +68,7 @@ public class MemberService {
         this.members = members;
         this.users = users;
         this.memberships = memberships;
+        this.plans = plans;
         this.bookings = bookings;
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
@@ -184,8 +189,28 @@ public class MemberService {
                 member.getEmail()
         ));
 
+        // Create initial membership plan assignment
+        String tierName = (req.tier() != null && !req.tier().isBlank()) ? req.tier().trim().toUpperCase() : "GOLD";
+        if (tierName.contains("SILVER")) tierName = "SILVER";
+        else if (tierName.contains("JUNIOR")) tierName = "JUNIOR";
+        else tierName = "GOLD";
+
+        Plan plan = plans.findByName(tierName).orElse(null);
+        Membership membership = null;
+        if (plan != null) {
+            membership = new Membership();
+            membership.setMember(member);
+            membership.setPlan(plan);
+            membership.setStartDate(LocalDate.now(clock));
+            membership.setEndDate(LocalDate.now(clock).plusDays(plan.getValidityDays() > 0 ? plan.getValidityDays() : 365));
+            membership.setStatus("ACTIVE");
+            membership.setPricePaid(plan.getPrice() != null ? plan.getPrice() : BigDecimal.ZERO);
+            membership.setPaymentStatus("PAID");
+            membership = memberships.save(membership);
+        }
+
         String role = user != null ? user.getRole() : "MEMBER";
-        return mapper.toResponse(member, null, role);
+        return mapper.toResponse(member, membership, role);
     }
 
     @Transactional
@@ -233,13 +258,20 @@ public class MemberService {
                     normEmail,
                     normPhone != null ? normPhone : "+919876543210",
                     req.password() != null && !req.password().isBlank() ? req.password() : "password123",
-                    null, null, null, null
+                    null, null, null, null, null
             );
             return register(autoReg);
         }
 
         String role = user != null ? user.getRole() : "MEMBER";
-        return mapper.toResponse(member, memberships.findCurrent(member.getId(), LocalDate.now(clock)).orElse(null), role);
+        Membership currentMembership = memberships.findCurrent(member.getId(), LocalDate.now(clock)).orElse(null);
+        if (currentMembership == null) {
+            List<Membership> allMemberMemberships = memberships.findByMember_IdOrderByStartDateDesc(member.getId());
+            if (!allMemberMemberships.isEmpty()) {
+                currentMembership = allMemberMemberships.get(0);
+            }
+        }
+        return mapper.toResponse(member, currentMembership, role);
     }
 
     @Transactional(readOnly = true)

@@ -7,7 +7,7 @@ import java.util.Set;
 
 public final class BarRoles {
 
-    private static final Set<String> MANAGERS = Set.of("ROLE_MANAGER", "ROLE_ADMIN", "ROLE_OWNER");
+    private static final Set<String> MANAGERS = Set.of("ROLE_MANAGER");
 
     private BarRoles() {
     }

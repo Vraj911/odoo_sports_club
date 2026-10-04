@@ -201,7 +201,7 @@ export function PublicNavbar({ isInsideHero = false }: { isInsideHero?: boolean 
       <div className="flex items-center gap-4">
         {user ? (
           <AppLink
-            to={user.role === "ADMIN" ? "/owner" : user.role === "STAFF" ? "/desk" : "/app"}
+            to={user.role === "STAFF" ? "/desk" : "/app"}
             className="text-sm font-medium text-chalk hover:text-volt-400 transition-colors hidden sm:inline"
           >
             Dashboard
@@ -255,7 +255,7 @@ export function PublicNavbar({ isInsideHero = false }: { isInsideHero?: boolean 
             <div className="pt-4 border-t border-chalk/14 flex flex-col gap-3">
               {user ? (
                 <AppLink
-                  to={user.role === "ADMIN" ? "/owner" : user.role === "STAFF" ? "/desk" : "/app"}
+                  to={user.role === "STAFF" ? "/desk" : "/app"}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Button variant="secondary" className="w-full">

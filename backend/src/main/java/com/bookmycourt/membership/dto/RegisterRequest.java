@@ -12,6 +12,22 @@ public record RegisterRequest(
         LocalDate dateOfBirth,
         String guardianName,
         String guardianPhone,
-        String guardianEmail
+        String guardianEmail,
+        String tier
 ) {
+    public RegisterRequest(
+            String firstName,
+            String lastName,
+            String fullName,
+            String email,
+            String phone,
+            String password,
+            LocalDate dateOfBirth,
+            String guardianName,
+            String guardianPhone,
+            String guardianEmail
+    ) {
+        this(firstName, lastName, fullName, email, phone, password, dateOfBirth, guardianName, guardianPhone, guardianEmail, null);
+    }
 }
+

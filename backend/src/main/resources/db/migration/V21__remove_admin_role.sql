@@ -1,0 +1,5 @@
+UPDATE app_user SET role = 'SYSTEM' WHERE role = 'ADMIN';
+
+ALTER TABLE app_user DROP CONSTRAINT IF EXISTS app_user_role_chk;
+ALTER TABLE app_user ADD CONSTRAINT app_user_role_chk
+    CHECK (role IN ('MANAGER','FRONT_DESK','BAR_STAFF','SHOP_STAFF','KITCHEN','ACCOUNTANT','MEMBER','SYSTEM'));

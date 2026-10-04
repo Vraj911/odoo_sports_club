@@ -3,7 +3,7 @@ import type { PrimaryRole, PermissionGroup, AuthUser } from "@/types/common";
 export const APP_NAME = "bookmycourt";
 export const CLUB_NAME = "The Champions Club";
 
-export const PRIMARY_ROLES: PrimaryRole[] = ["MEMBER", "STAFF", "ADMIN"];
+export const PRIMARY_ROLES: PrimaryRole[] = ["MEMBER", "STAFF"];
 
 export const ALL_PERMISSION_GROUPS: PermissionGroup[] = [
   "FRONT_DESK",
@@ -16,7 +16,6 @@ export const ALL_PERMISSION_GROUPS: PermissionGroup[] = [
 export const ROLE_LABELS: Record<PrimaryRole, string> = {
   MEMBER: "Member",
   STAFF: "Staff",
-  ADMIN: "Admin",
 };
 
 export const GROUP_LABELS: Record<PermissionGroup, string> = {
@@ -30,14 +29,12 @@ export const GROUP_LABELS: Record<PermissionGroup, string> = {
 /**
  * Determine the landing page for a user.
  * - MEMBER → /app
- * - ADMIN → /owner
  * - STAFF with exactly 1 group → that group's console
  * - STAFF with several groups or none → /staff
  */
 export function getRoleHome(user: AuthUser | null | undefined): string {
   if (!user) return "/";
   if (user.role === "MEMBER") return "/app";
-  if (user.role === "ADMIN") return "/owner";
   if (user.role === "STAFF") {
     if (user.groups.length === 1) {
       const g = user.groups[0];
@@ -63,7 +60,6 @@ export function getRoleHome(user: AuthUser | null | undefined): string {
 export const ROLE_HOME: Record<PrimaryRole, string> = {
   MEMBER: "/app",
   STAFF: "/staff",
-  ADMIN: "/owner",
 };
 
 export const AUTH_STORAGE_KEY = "ccms.auth";
@@ -83,5 +79,4 @@ export const DEMO_PRESETS: DemoPreset[] = [
   { label: "Staff · CRM", role: "STAFF", groups: ["CRM"], home: "/crm" },
   { label: "Staff · Finance", role: "STAFF", groups: ["FINANCE"], home: "/finance" },
   { label: "Staff (No Group)", role: "STAFF", groups: [], home: "/staff" },
-  { label: "Admin / Owner", role: "ADMIN", groups: [], home: "/owner" },
 ];

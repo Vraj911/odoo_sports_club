@@ -27,6 +27,7 @@ export default function LoginPage({}: PageProps) {
   const toast = useToast();
   const [selectedRole, setSelectedRole] = useState<PrimaryRole>("MEMBER");
   const [selectedStaffId, setSelectedStaffId] = useState<string>("front-desk");
+  const [selectedMemberTier, setSelectedMemberTier] = useState<string>("Silver");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [emailCleared, setEmailCleared] = useState(false);
@@ -83,9 +84,6 @@ export default function LoginPage({}: PageProps) {
     } else if (role === "STAFF") {
       setValue("email", "staff@championsclub.in");
       setValue("password", "password123");
-    } else if (role === "ADMIN") {
-      setValue("email", "admin@championsclub.in");
-      setValue("password", "password123");
     }
   };
 
@@ -105,16 +103,20 @@ export default function LoginPage({}: PageProps) {
           [res.firstName, res.lastName].filter(Boolean).join(" ") ||
           values.email.split("@")[0] ||
           "Member";
-        loginAs("MEMBER", [], memberName, res.id, res.email || values.email.trim());
-        memberStore.setProfileFromMemberDto(res);
-        toast.success("Welcome back!", `Signed in as ${memberName}`);
+        const finalTier = res.tier || selectedMemberTier;
+        loginAs("MEMBER", [], memberName, res.id, res.email || values.email.trim(), finalTier);
+        memberStore.setProfileFromMemberDto({ ...res, tier: finalTier as any }, finalTier);
+        toast.success("Welcome back!", `Signed in as ${memberName} (${finalTier} Member)`);
         go(returnUrl ? decodeURIComponent(returnUrl) : "/app");
       } catch (err) {
         console.warn("Backend member login failed, using local profile fallback", err);
         const fallbackName = values.email.split("@")[0] || "Member";
-        loginAs("MEMBER", [], fallbackName, undefined, values.email.trim());
-        memberStore.setProfileFromMemberDto({ fullName: fallbackName, email: values.email.trim() });
-        toast.success("Welcome back!", `Signed in as Member (${values.email})`);
+        loginAs("MEMBER", [], fallbackName, undefined, values.email.trim(), selectedMemberTier);
+        memberStore.setProfileFromMemberDto(
+          { fullName: fallbackName, email: values.email.trim(), tier: selectedMemberTier as any },
+          selectedMemberTier
+        );
+        toast.success("Welcome back!", `Signed in as ${selectedMemberTier} Member`);
         go(returnUrl ? decodeURIComponent(returnUrl) : "/app");
       } finally {
         setIsLoading(false);
@@ -122,19 +124,13 @@ export default function LoginPage({}: PageProps) {
       return;
     }
 
-    // Admin and Staff roles
+    // Staff role
     setTimeout(() => {
       setIsLoading(false);
-      if (selectedRole === "ADMIN") {
-        loginAs("ADMIN", [], "Vikramaditya (Admin)");
-        toast.success("Admin Access Granted", `Signed in as Super Admin`);
-        go(returnUrl ? decodeURIComponent(returnUrl) : "/owner");
-      } else {
-        const staffMember = STAFF_MEMBERS.find((s) => s.id === selectedStaffId) || STAFF_MEMBERS[0]!;
-        loginAs("STAFF", staffMember.groups, staffMember.name);
-        toast.success("Staff Terminal Authorized", `Signed in as ${staffMember.name} (${staffMember.roleTitle})`);
-        go(returnUrl ? decodeURIComponent(returnUrl) : staffMember.home);
-      }
+      const staffMember = STAFF_MEMBERS.find((s) => s.id === selectedStaffId) || STAFF_MEMBERS[0]!;
+      loginAs("STAFF", staffMember.groups, staffMember.name);
+      toast.success("Staff Terminal Authorized", `Signed in as ${staffMember.name} (${staffMember.roleTitle})`);
+      go(returnUrl ? decodeURIComponent(returnUrl) : staffMember.home);
     }, 400);
   };
 
@@ -149,12 +145,12 @@ export default function LoginPage({}: PageProps) {
         <p className="mt-1 text-xs text-chalk/70">Enter your credentials to access your club account</p>
       </div>
 
-      {/* Role Picker: [ Member | Staff | Admin ] */}
+      {/* Role Picker: [ Member | Staff ] */}
       <div>
         <label className="text-[12px] font-medium text-chalk/70 block mb-1.5">
           Select Login Type
         </label>
-        <div className="grid grid-cols-3 gap-1 rounded-pill bg-chalk/8 p-1 border border-chalk/10">
+        <div className="grid grid-cols-2 gap-1 rounded-pill bg-chalk/8 p-1 border border-chalk/10">
           <button
             type="button"
             onClick={() => handleRoleChange("MEMBER")}
@@ -177,21 +173,42 @@ export default function LoginPage({}: PageProps) {
           >
             Staff
           </button>
-          <button
-            type="button"
-            onClick={() => handleRoleChange("ADMIN")}
-            className={`rounded-pill py-1.5 text-center text-xs font-semibold transition-all ${
-              selectedRole === "ADMIN"
-                ? "bg-volt-400 text-ink-900 shadow-md"
-                : "text-chalk/70 hover:text-chalk hover:bg-chalk/6"
-            }`}
-          >
-            Admin
-          </button>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        {/* If Member is chosen: Membership Tier */}
+        {selectedRole === "MEMBER" && (
+          <div className="rounded-[16px] border border-chalk/14 bg-court-700/60 p-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-medium text-chalk/70">Membership Tier</span>
+              <span className="text-volt-400 font-semibold">{selectedMemberTier} Member</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1 rounded-pill bg-chalk/8 p-1 border border-chalk/10 text-xs">
+              {(["Silver", "Gold", "Platinum", "Junior"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setSelectedMemberTier(t)}
+                  className={`rounded-pill py-1 text-center font-medium transition-all ${
+                    selectedMemberTier === t
+                      ? t === "Gold"
+                        ? "bg-amber-400 text-ink-900 font-semibold shadow-sm"
+                        : t === "Silver"
+                        ? "bg-white text-ink-900 font-semibold shadow-sm"
+                        : t === "Junior"
+                        ? "bg-sky-400 text-ink-900 font-semibold shadow-sm"
+                        : "bg-volt-400 text-ink-900 font-semibold shadow-sm"
+                      : "text-chalk/70 hover:text-chalk"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* If Staff is chosen: ask which staff member */}
         {selectedRole === "STAFF" && (
           <div className="rounded-[16px] border border-volt-400/30 bg-court-700/60 p-3.5 space-y-2">
@@ -312,11 +329,7 @@ export default function LoginPage({}: PageProps) {
         </div>
 
         <Button type="submit" variant="primary" loading={isLoading} className="mt-2 w-full">
-          {selectedRole === "MEMBER"
-            ? "Sign In as Member"
-            : selectedRole === "ADMIN"
-            ? "Sign In as Admin"
-            : "Sign In as Staff"}
+          {selectedRole === "MEMBER" ? "Sign In as Member" : "Sign In as Staff"}
         </Button>
       </form>
 

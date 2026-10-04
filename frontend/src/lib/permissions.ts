@@ -108,24 +108,21 @@ export const ADMIN_ONLY_PERMISSIONS: readonly GranularPermission[] = [
 
 // ─── Group & Permission Checks ──────────────────────────────────────────
 
-/** Check if user belongs to a specific permission group or has ADMIN bypass */
+/** Check if user belongs to a specific permission group */
 export function hasGroup(
   user: AuthUser | null | undefined,
   group: PermissionGroup
 ): boolean {
   if (!user) return false;
-  if (user.role === "ADMIN") return true;
   if (user.role === "STAFF") return user.groups.includes(group);
   return false;
 }
 
 /**
  * Core capability check.
- * - ADMIN always returns true (full bypass).
  * - 'auth'        → any authenticated user
  * - 'member'      → MEMBER role
  * - 'staff'       → STAFF role
- * - 'admin'       → ADMIN role
  * - PermissionGroup → STAFF holding that group
  * - GranularPermission → checks default group mappings
  */
@@ -134,7 +131,6 @@ export function can(
   key: PermissionKey
 ): boolean {
   if (!user) return false;
-  if (user.role === "ADMIN") return true;
 
   switch (key) {
     case "auth":
@@ -143,8 +139,6 @@ export function can(
       return user.role === "MEMBER";
     case "staff":
       return user.role === "STAFF";
-    case "admin":
-      return false; // Handled by user.role === 'ADMIN' above
     default:
       break;
   }
@@ -152,11 +146,6 @@ export function can(
   // Check if key is a PermissionGroup
   if ((PERMISSION_GROUPS as readonly string[]).includes(key)) {
     return user.role === "STAFF" && user.groups.includes(key as PermissionGroup);
-  }
-
-  // Check if key is Admin-only
-  if ((ADMIN_ONLY_PERMISSIONS as readonly string[]).includes(key)) {
-    return false; // Admin check already returned true above
   }
 
   // Granular check across staff groups
@@ -184,7 +173,6 @@ export function canAccess(
 
   // Object rule { roles, anyGroup, permission }
   if (!user) return false;
-  if (user.role === "ADMIN") return true;
 
   if (access.roles && access.roles.length > 0) {
     if (!access.roles.includes(user.role)) return false;
@@ -240,27 +228,22 @@ export const NAV_GROUPS: { key: NavGroupKey; label: string }[] = [
   { key: "crm", label: "CRM" },
   { key: "finance", label: "Finance" },
   { key: "hr", label: "HR & Payroll" },
-  { key: "admin", label: "Admin & Operations" },
-  { key: "owner", label: "Owner Dashboard" },
   { key: "self", label: "My Work" },
 ];
 
 /**
  * Which sidebar groups a user may see, based on role + groups.
- * ADMIN sees all. STAFF sees groups mapped from their PermissionGroups + self.
+ * STAFF sees groups mapped from their PermissionGroups + self + hr.
  * MEMBER sees nothing in the console sidebar.
  */
 export function getVisibleNavGroups(user: AuthUser | null | undefined): NavGroupKey[] {
   if (!user) return [];
-  if (user.role === "ADMIN") {
-    // For Admin: Front Desk, Bar & Kitchen, Shop & Inventory, CRM, and My Work sections are removed
-    return ["owner", "admin", "finance", "hr"];
-  }
   if (user.role === "MEMBER") return [];
 
   // STAFF: map assigned permission groups to nav groups
   const groups = new Set<NavGroupKey>();
   groups.add("self"); // every staff member has access to "My Work"
+  groups.add("hr");
 
   for (const g of user.groups) {
     switch (g) {

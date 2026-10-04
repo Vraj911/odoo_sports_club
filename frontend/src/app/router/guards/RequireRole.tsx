@@ -31,10 +31,6 @@ export function RequireAccess({
     return <GoTo to={`/login?returnUrl=${encodeURIComponent(returnUrl)}`} />;
   }
 
-  // Admin bypasses all
-  if (user.role === "ADMIN") {
-    return <>{children}</>;
-  }
 
   // 1. If explicit access rule provided
   if (access && !canAccess(user, access)) {

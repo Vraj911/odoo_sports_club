@@ -28,7 +28,7 @@ import { useToast } from "@/components/ui/Toast";
 import type { PageProps, PermissionGroup } from "@/types/common";
 
 interface LauncherItem {
-  group: PermissionGroup | "ADMIN";
+  group: PermissionGroup;
   title: string;
   description: string;
   path: string;
@@ -83,15 +83,6 @@ const LAUNCHERS: LauncherItem[] = [
     icon: Landmark,
     color: "from-rose-500/20 to-rose-600/10 text-rose-400 border-rose-500/30",
   },
-  {
-    group: "ADMIN",
-    title: "Admin & Operations",
-    description: "Club settings, court parameters, pricing plans, staff roles & audit logs.",
-    path: "/admin",
-    badge: "Super Admin",
-    icon: Settings,
-    color: "from-volt-400/20 to-volt-500/10 text-volt-400 border-volt-400/30",
-  },
 ];
 
 export default function StaffHub({}: PageProps) {
@@ -101,16 +92,13 @@ export default function StaffHub({}: PageProps) {
 
   if (!user) return null;
 
-  const isAdmin = user.role === "ADMIN";
   const userGroups = user.groups || [];
 
   // Filter launcher cards:
-  // Admin sees all. Staff sees only their assigned groups.
-  const visibleLaunchers = LAUNCHERS.filter((item) => {
-    if (isAdmin) return true;
-    if (item.group === "ADMIN") return false;
-    return userGroups.includes(item.group as PermissionGroup);
-  });
+  // Staff sees only their assigned groups.
+  const visibleLaunchers = LAUNCHERS.filter((item) =>
+    userGroups.includes(item.group)
+  );
 
   const handleToggleClock = () => {
     if (clockedIn) {

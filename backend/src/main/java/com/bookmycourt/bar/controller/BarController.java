@@ -64,12 +64,12 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/bar")
-@PreAuthorize("hasAnyRole('BAR_STAFF','MANAGER','ADMIN','OWNER')")
+@PreAuthorize("hasAnyRole('BAR_STAFF','MANAGER')")
 public class BarController {
 
-    private static final String MANAGER = "hasAnyRole('MANAGER','ADMIN','OWNER')";
-    private static final String KITCHEN_OR_BAR = "hasAnyRole('KITCHEN','BAR_STAFF','MANAGER','ADMIN','OWNER')";
-    private static final String REPORTS = "hasAnyRole('MANAGER','ADMIN','OWNER','ACCOUNTANT')";
+    private static final String MANAGER = "hasRole('MANAGER')";
+    private static final String KITCHEN_OR_BAR = "hasAnyRole('KITCHEN','BAR_STAFF','MANAGER')";
+    private static final String REPORTS = "hasAnyRole('MANAGER','ACCOUNTANT')";
 
     private final BarService bar;
     private final BarPaymentService payments;

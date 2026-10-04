@@ -43,8 +43,9 @@ export const socialStore = {
 
   join: (
     sessionId: string,
-    memberName: string = "Arjun Mehta",
-    tier: MemberTier = "Silver"
+    memberName: string = "Player",
+    tier: MemberTier = "Gold",
+    isSelf: boolean = false
   ): JoinResult => {
     const session = socialSessions.find((s) => s.id === sessionId);
     if (!session) {
@@ -56,63 +57,36 @@ export const socialStore = {
       };
     }
 
-    // Check if already in participants or waitlist
+    const trimmedName = memberName.trim() || `Player ${session.participants.length + 1}`;
+
+    // Check if duplicate player name in participants or waitlist
     const alreadyParticipant = session.participants.some(
-      (p) => p.isSelf || p.name.toLowerCase() === memberName.toLowerCase()
+      (p) => p.name.toLowerCase() === trimmedName.toLowerCase()
     );
     const alreadyWaitlist = session.waitlist.some(
-      (w) => w.isSelf || w.name.toLowerCase() === memberName.toLowerCase()
+      (w) => w.name.toLowerCase() === trimmedName.toLowerCase()
     );
 
     if (alreadyParticipant || alreadyWaitlist) {
       return {
         success: false,
         status: "ALREADY_JOINED",
-        message: "You have already registered for this session.",
+        message: `${trimmedName} is already registered for this session.`,
         pricePaid: 0,
       };
     }
 
-    // Check 2 bookings/day rule (BR-07)
-    // Count member's bookings on session.date + social sessions joined on session.date
-    const memberDateBookings = bookingStore
-      .getAll()
-      .filter(
-        (b) =>
-          b.date === session.date &&
-          b.memberId === "SELF" &&
-          b.status !== "CANCELLED" &&
-          b.status !== "EXPIRED"
-      ).length;
-
-    const otherSocialOnDate = socialSessions.filter(
-      (s) =>
-        s.date === session.date &&
-        s.id !== sessionId &&
-        s.participants.some((p) => p.isSelf)
-    ).length;
-
-    if (memberDateBookings + otherSocialOnDate >= 2) {
-      return {
-        success: false,
-        status: "CAP_EXCEEDED",
-        message:
-          "Daily quota reached: You already have 2 bookings/sessions on this date (Rule BR-07: Max 2 bookings per day).",
-        pricePaid: 0,
-      };
-    }
-
-    const price = session.pricing[tier] ?? 150;
+    const price = session.pricing[tier] ?? 0;
     const now = Date.now();
 
     // If capacity is not full (< 8)
     if (session.participants.length < session.capacity) {
       const newParticipant: SocialParticipant = {
-        id: `P-SELF-${now}`,
-        name: memberName,
+        id: `P-${now}-${Math.random().toString(36).slice(2, 6)}`,
+        name: trimmedName,
         tier,
         joinedAt: now,
-        isSelf: true,
+        isSelf,
       };
 
       socialSessions = socialSessions.map((s) => {
@@ -127,7 +101,7 @@ export const socialStore = {
       return {
         success: true,
         status: "JOINED",
-        message: `Successfully registered for ${session.title}! (Charged ₹${price})`,
+        message: `Registered ${trimmedName} for ${session.title}! (Fee: ₹${price})`,
         pricePaid: price,
       };
     }
@@ -135,12 +109,12 @@ export const socialStore = {
     // Capacity is full (8/8) -> Join waitlist
     const nextPos = session.waitlist.length + 1;
     const waitlistEntry = {
-      id: `W-SELF-${now}`,
-      name: memberName,
+      id: `W-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      name: trimmedName,
       tier,
       joinedAt: now,
       position: nextPos,
-      isSelf: true,
+      isSelf,
     };
 
     socialSessions = socialSessions.map((s) => {
@@ -155,10 +129,23 @@ export const socialStore = {
     return {
       success: true,
       status: "WAITLISTED",
-      message: `Session is full (8/8). You have joined the waitlist at Position #${nextPos}.`,
+      message: `Session is full (8/8). ${trimmedName} added to waitlist at Position #${nextPos}.`,
       waitlistPosition: nextPos,
       pricePaid: 0,
     };
+  },
+
+  clearSession: (sessionId: string) => {
+    socialSessions = socialSessions.map((s) => {
+      if (s.id !== sessionId) return s;
+      return { ...s, participants: [], waitlist: [] };
+    });
+    notify();
+  },
+
+  resetAll: () => {
+    socialSessions = generateSampleSocialSessions();
+    notify();
   },
 
   leave: (sessionId: string, targetIdOrSelf?: string): LeaveResult => {
@@ -266,10 +253,20 @@ export function useSocialPlay() {
     return socialStore.getById(id);
   }, []);
 
+  const clearSession = useCallback((sessionId: string) => {
+    return socialStore.clearSession(sessionId);
+  }, []);
+
+  const resetAll = useCallback(() => {
+    return socialStore.resetAll();
+  }, []);
+
   return {
     sessions,
     joinSession,
     leaveSession,
     getSession,
+    clearSession,
+    resetAll,
   };
 }

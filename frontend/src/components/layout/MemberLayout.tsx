@@ -102,12 +102,26 @@ export function MemberLayout({ route, children }: { route: RouteMeta; children: 
           </div>
 
           <div className="flex items-center gap-4">
-            <StatusPill
-              variant={profile.tier === "Gold" ? "volt" : profile.tier === "Silver" ? "neutral" : "info"}
-              showDot
-            >
-              {profile.tier} Member
-            </StatusPill>
+            {(() => {
+              const activeTier = user?.tier || profile.tier || "Member";
+              const tierLower = activeTier.toLowerCase();
+              const pillVariant =
+                tierLower === "gold"
+                  ? "warning"
+                  : tierLower === "silver"
+                  ? "neutral"
+                  : tierLower === "platinum"
+                  ? "volt"
+                  : tierLower === "junior"
+                  ? "info"
+                  : "neutral";
+
+              return (
+                <StatusPill variant={pillVariant} showDot>
+                  {activeTier} Member
+                </StatusPill>
+              );
+            })()}
 
             <AppLink
               to="/app/notifications"

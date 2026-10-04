@@ -67,16 +67,14 @@ export function POSTopBar({ activeModule = "pos" }: POSTopBarProps) {
   ];
 
   const handleExit = () => {
-    if (user?.role === "ADMIN") {
-      go("/owner");
-    } else if (user?.groups?.includes("FRONT_DESK")) {
+    if (user?.groups?.includes("FRONT_DESK")) {
       go("/desk");
     } else {
       go("/staff");
     }
   };
 
-  const exitLabel = user?.role === "ADMIN" ? "Admin" : user?.groups?.includes("FRONT_DESK") ? "Desk" : "Exit";
+  const exitLabel = user?.groups?.includes("FRONT_DESK") ? "Desk" : "Exit";
   const currentLink = navLinks.find((l) => l.key === activeModule) || navLinks[0];
 
   return (

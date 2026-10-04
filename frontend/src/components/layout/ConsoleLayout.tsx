@@ -28,9 +28,8 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
   const visibleGroupKeys = getVisibleNavGroups(user);
 
   // Build a display string for the user's permission groups
-  const groupDisplay = user?.role === "ADMIN"
-    ? "Full Access"
-    : user?.groups.map((g) => GROUP_LABELS[g]).join(", ") || "No Group Assigned";
+  const groupDisplay =
+    user?.groups.map((g) => GROUP_LABELS[g]).join(", ") || "No Group Assigned";
 
   return (
     <div className="flex min-h-screen bg-backdrop text-chalk">
@@ -51,7 +50,7 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
               collapsed ? "justify-center px-2" : "justify-start px-5"
             )}
           >
-            <AppLink to={user?.role === "ADMIN" ? "/admin/audit-log" : "/"} className="flex items-center">
+            <AppLink to="/" className="flex items-center">
               <Logo variant={collapsed ? "icon" : "full"} size={28} />
             </AppLink>
           </div>
@@ -157,30 +156,22 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
             {/* Topbar User Role & Group Chips */}
             {user && (
               <div className="hidden sm:flex items-center gap-1.5">
-                {user.role === "ADMIN" ? (
-                  <span className="rounded-pill bg-volt-400 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-ink-900 uppercase shadow-sm">
-                    ADMIN
-                  </span>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <span className="rounded-pill border border-chalk/20 bg-chalk/10 px-2 py-0.5 text-[10px] font-semibold text-chalk/90 uppercase tracking-wider">
-                      STAFF
+                <span className="rounded-pill border border-chalk/20 bg-chalk/10 px-2 py-0.5 text-[10px] font-semibold text-chalk/90 uppercase tracking-wider">
+                  STAFF
+                </span>
+                {user.groups.length > 0 ? (
+                  user.groups.map((g) => (
+                    <span
+                      key={g}
+                      className="rounded-pill border border-volt-400/30 bg-volt-400/10 px-2 py-0.5 text-[10px] font-semibold text-volt-300"
+                    >
+                      {g}
                     </span>
-                    {user.groups.length > 0 ? (
-                      user.groups.map((g) => (
-                        <span
-                          key={g}
-                          className="rounded-pill border border-volt-400/30 bg-volt-400/10 px-2 py-0.5 text-[10px] font-semibold text-volt-300"
-                        >
-                          {g}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="rounded-pill border border-chalk/14 bg-chalk/6 px-2 py-0.5 text-[10px] text-chalk/50">
-                        NO GROUP
-                      </span>
-                    )}
-                  </div>
+                  ))
+                ) : (
+                  <span className="rounded-pill border border-chalk/14 bg-chalk/6 px-2 py-0.5 text-[10px] text-chalk/50">
+                    NO GROUP
+                  </span>
                 )}
               </div>
             )}

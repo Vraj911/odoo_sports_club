@@ -22,6 +22,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
+import { useMember } from "@/features/member/memberStore";
 import { Money } from "@/components/shared/Money";
 import { useSocialPlay } from "@/features/social/socialStore";
 import type { SocialSession, SocialParticipant, MemberTier } from "@/features/booking/types";
@@ -29,34 +30,47 @@ import { SPORT_LABELS, SPORT_ICONS } from "@/features/booking/types";
 import { cn } from "@/lib/cn";
 
 export default function SocialPlay() {
-  const { sessions, joinSession, leaveSession } = useSocialPlay();
+  const { sessions, joinSession, leaveSession, clearSession } = useSocialPlay();
+  const { profile } = useMember();
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [currentTier, setCurrentTier] = useState<MemberTier>("Silver");
+  const [currentTier, setCurrentTier] = useState<MemberTier>("Gold");
   const [selectedSessionForList, setSelectedSessionForList] = useState<SocialSession | null>(null);
   const [confirmJoinSession, setConfirmJoinSession] = useState<SocialSession | null>(null);
   const [confirmLeaveSession, setConfirmLeaveSession] = useState<SocialSession | null>(null);
+  const [playerName, setPlayerName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Simulated initial loading
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 400);
+    }, 300);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleJoin = (session: SocialSession) => {
+  const handleJoin = (session: SocialSession, defaultName?: string) => {
     setConfirmJoinSession(session);
+    const myName = profile?.name || "Vraj Shah";
+    const alreadyHasSelf = session.participants.some((p) => p.isSelf);
+    if (!alreadyHasSelf && session.participants.length === 0) {
+      setPlayerName(defaultName || myName);
+    } else {
+      setPlayerName(defaultName || `Player ${session.participants.length + 1}`);
+    }
   };
 
   const handleConfirmJoin = () => {
     if (!confirmJoinSession) return;
     setIsProcessing(true);
 
+    const defaultMyName = profile?.name || "Vraj Shah";
+    const nameToRegister = playerName.trim() || `Player ${confirmJoinSession.participants.length + 1}`;
+    const isSelf = nameToRegister.toLowerCase() === defaultMyName.toLowerCase();
+
     setTimeout(() => {
-      const res = joinSession(confirmJoinSession.id, "Arjun Mehta", currentTier);
+      const res = joinSession(confirmJoinSession.id, nameToRegister, currentTier, isSelf);
       setIsProcessing(false);
       setConfirmJoinSession(null);
 
@@ -68,15 +82,35 @@ export default function SocialPlay() {
       if (res.status === "WAITLISTED") {
         toast.warning(
           "Added to Waitlist",
-          `Session is full (8/8). You are placed at Waitlist Position #${res.waitlistPosition}. You will be auto-promoted if anyone leaves!`
+          `Session is full (8/8). ${nameToRegister} placed at Waitlist Position #${res.waitlistPosition}.`
         );
       } else {
         toast.success(
           "Registration Confirmed",
-          `You've joined ${confirmJoinSession.title}! (Fee: ₹${res.pricePaid})`
+          `Added ${nameToRegister} to ${confirmJoinSession.title}! (${confirmJoinSession.participants.length + 1}/8 spots filled)`
         );
       }
-    }, 450);
+    }, 250);
+  };
+
+  const handleQuickAddSlot = (session: SocialSession) => {
+    const myName = profile?.name || "Vraj Shah";
+    const alreadyHasSelf = session.participants.some((p) => p.isSelf);
+    const name = !alreadyHasSelf ? myName : `Player ${session.participants.length + 1}`;
+    const isSelf = !alreadyHasSelf;
+    const res = joinSession(session.id, name, currentTier, isSelf);
+    if (!res.success) {
+      toast.error("Slot Not Added", res.message);
+    } else if (res.status === "WAITLISTED") {
+      toast.warning("Waitlisted", `Session full! ${name} added to waitlist #${res.waitlistPosition}`);
+    } else {
+      toast.success("Slot Filled", `${name} added (${session.participants.length + 1}/8)`);
+    }
+  };
+
+  const handleClear = (session: SocialSession) => {
+    clearSession(session.id);
+    toast.info("Slots Cleared", `Reset spots for ${session.title} to 0/8.`);
   };
 
   const handleLeave = (session: SocialSession) => {
@@ -105,7 +139,7 @@ export default function SocialPlay() {
           }, 600);
         }
       }
-    }, 400);
+    }, 300);
   };
 
   return (
@@ -376,42 +410,85 @@ export default function SocialPlay() {
                 </div>
 
                 {/* Bottom Action: Join / Leave / Waitlist */}
-                <div className="mt-5 pt-4 border-t border-chalk/10">
-                  {isJoined ? (
-                    <Button
-                      variant="danger"
-                      onClick={() => handleLeave(session)}
-                      leftIcon={<LogOut className="size-4" />}
-                      className="w-full"
-                    >
-                      Leave Session
-                    </Button>
-                  ) : isWaitlisted ? (
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleLeave(session)}
-                      className="w-full text-danger hover:bg-danger/10"
-                    >
-                      Leave Waitlist (#{myWaitlist?.position})
-                    </Button>
-                  ) : isFull ? (
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleJoin(session)}
-                      leftIcon={<UserPlus className="size-4" />}
-                      className="w-full text-amber-300 border-amber-400/30 hover:bg-amber-400/10"
-                    >
-                      Join Waitlist (Queue: {session.waitlist.length})
-                    </Button>
+                <div className="mt-5 pt-4 border-t border-chalk/10 space-y-2">
+                  {isFull ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleJoin(session)}
+                          leftIcon={<UserPlus className="size-4" />}
+                          className="flex-1 text-amber-300 border-amber-400/30 hover:bg-amber-400/10 text-xs sm:text-sm"
+                        >
+                          Join Waitlist (Queue: {session.waitlist.length})
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleClear(session)}
+                          className="text-chalk/60 hover:text-danger hover:bg-danger/10 text-xs px-2.5 font-mono"
+                          title="Reset session to 0/8 slots"
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                      {isJoined && (
+                        <button
+                          type="button"
+                          onClick={() => handleLeave(session)}
+                          className="text-danger hover:underline text-xs flex items-center gap-1 font-medium mx-auto"
+                        >
+                          <LogOut className="size-3" />
+                          <span>Leave Session</span>
+                        </button>
+                      )}
+                    </div>
                   ) : (
-                    <Button
-                      variant="primary"
-                      onClick={() => handleJoin(session)}
-                      leftIcon={<CheckCircle2 className="size-4" />}
-                      className="w-full"
-                    >
-                      Join Session · {userPrice === 0 ? "Free (Gold)" : `₹${userPrice}`}
-                    </Button>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="primary"
+                          onClick={() => handleJoin(session)}
+                          leftIcon={<CheckCircle2 className="size-4" />}
+                          className="flex-1 text-xs sm:text-sm"
+                        >
+                          {session.participants.length === 0
+                            ? `Join Session · ${userPrice === 0 ? "Free (Gold)" : `₹${userPrice}`}`
+                            : `+ Add Player (${session.participants.length}/8)`}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleQuickAddSlot(session)}
+                          className="text-xs px-3 font-mono shrink-0 hover:border-volt-400 bg-white/5"
+                          title="Fill 1 slot with next player"
+                        >
+                          +1 Slot
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] px-1 text-chalk/60">
+                        {isJoined ? (
+                          <button
+                            type="button"
+                            onClick={() => handleLeave(session)}
+                            className="text-danger hover:underline flex items-center gap-1 font-medium"
+                          >
+                            <LogOut className="size-3" />
+                            <span>Leave My Spot</span>
+                          </button>
+                        ) : (
+                          <span>Capacity: 8 players</span>
+                        )}
+                        {session.participants.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleClear(session)}
+                            className="text-chalk/40 hover:text-danger ml-auto transition-colors font-mono"
+                          >
+                            Clear (0/8)
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -429,91 +506,139 @@ export default function SocialPlay() {
           title={
             <div className="flex items-center gap-2">
               <Users className="size-5 text-volt-400" />
-              <span>Registered Participants ({selectedSessionForList.participants.length}/8)</span>
+              <span>
+                Registered Participants (
+                {(sessions.find((s) => s.id === selectedSessionForList.id) || selectedSessionForList)
+                  .participants.length}
+                /8)
+              </span>
             </div>
           }
           subtitle={`${selectedSessionForList.title} · ${selectedSessionForList.date}`}
         >
-          <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
-            {/* Active confirmed participants */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-chalk/60">
-                Active Players (Capacity 8)
-              </h4>
-              <div className="space-y-1.5">
-                {selectedSessionForList.participants.map((p, idx) => (
-                  <div
-                    key={p.id}
-                    className={cn(
-                      "flex items-center justify-between rounded-xl p-2.5 px-3 border transition-colors",
-                      p.isSelf
-                        ? "bg-volt-400/15 border-volt-400/30"
-                        : "bg-court-700/60 border-chalk/8"
+          {(() => {
+            const currentSession =
+              sessions.find((s) => s.id === selectedSessionForList.id) || selectedSessionForList;
+            return (
+              <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
+                {/* Active confirmed participants */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-chalk/60">
+                      Active Players ({currentSession.participants.length}/8)
+                    </h4>
+                    {currentSession.participants.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleClear(currentSession)}
+                        className="text-[11px] text-danger hover:underline"
+                      >
+                        Clear All
+                      </button>
                     )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-mono text-xs text-chalk/40 w-4">#{idx + 1}</span>
-                      <div className="flex size-7 items-center justify-center rounded-full bg-court-600 text-[11px] font-bold text-chalk">
-                        {p.name
-                          .split(" ")
-                          .map((w) => w[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </div>
-                      <div>
-                        <span className="text-xs font-medium text-chalk">
-                          {p.name} {p.isSelf && <span className="text-volt-400 font-bold">(You)</span>}
-                        </span>
-                      </div>
-                    </div>
-
-                    <span className="rounded-pill bg-chalk/10 px-2 py-0.5 font-mono text-[10px] text-chalk/80">
-                      {p.tier}
-                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Waitlist Queue */}
-            {selectedSessionForList.waitlist.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-chalk/10">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-300 flex items-center justify-between">
-                  <span>Waitlist Queue</span>
-                  <span>{selectedSessionForList.waitlist.length} waiting</span>
-                </h4>
-                <div className="space-y-1.5">
-                  {selectedSessionForList.waitlist.map((w) => (
-                    <div
-                      key={w.id}
-                      className={cn(
-                        "flex items-center justify-between rounded-xl p-2.5 px-3 border",
-                        w.isSelf
-                          ? "bg-amber-400/15 border-amber-400/30"
-                          : "bg-court-800/60 border-chalk/8"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-mono text-amber-300 font-bold">
-                          #{w.position}
-                        </span>
-                        <span className="text-xs text-chalk/90 font-medium">
-                          {w.name} {w.isSelf && <span className="text-amber-300 font-bold">(You)</span>}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-chalk/50 font-mono">
-                        Auto-promotes on leave
-                      </span>
+                  {currentSession.participants.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-chalk/10 p-6 text-center text-xs text-chalk/50">
+                      No players registered yet. Slots are completely open (0/8)!
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-1.5">
+                      {currentSession.participants.map((p, idx) => (
+                        <div
+                          key={p.id}
+                          className={cn(
+                            "flex items-center justify-between rounded-xl p-2.5 px-3 border transition-colors",
+                            p.isSelf
+                              ? "bg-volt-400/15 border-volt-400/30"
+                              : "bg-court-700/60 border-chalk/8"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="font-mono text-xs text-chalk/40 w-4">#{idx + 1}</span>
+                            <div className="flex size-7 items-center justify-center rounded-full bg-court-600 text-[11px] font-bold text-chalk">
+                              {p.name
+                                .split(" ")
+                                .map((w) => w[0])
+                                .join("")
+                                .slice(0, 2)}
+                            </div>
+                            <div>
+                              <span className="text-xs font-medium text-chalk">
+                                {p.name} {p.isSelf && <span className="text-volt-400 font-bold">(You)</span>}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-pill bg-chalk/10 px-2 py-0.5 font-mono text-[10px] text-chalk/80">
+                              {p.tier}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => leaveSession(currentSession.id, p.id)}
+                              className="text-chalk/40 hover:text-danger text-xs px-1"
+                              title="Remove participant"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {/* Waitlist Queue */}
+                {currentSession.waitlist.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-chalk/10">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-300 flex items-center justify-between">
+                      <span>Waitlist Queue</span>
+                      <span>{currentSession.waitlist.length} waiting</span>
+                    </h4>
+                    <div className="space-y-1.5">
+                      {currentSession.waitlist.map((w) => (
+                        <div
+                          key={w.id}
+                          className={cn(
+                            "flex items-center justify-between rounded-xl p-2.5 px-3 border",
+                            w.isSelf
+                              ? "bg-amber-400/15 border-amber-400/30"
+                              : "bg-court-800/60 border-chalk/8"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-mono text-amber-300 font-bold">
+                              #{w.position}
+                            </span>
+                            <span className="text-xs text-chalk/90 font-medium">
+                              {w.name} {w.isSelf && <span className="text-amber-300 font-bold">(You)</span>}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-chalk/50 font-mono">
+                              Auto-promotes on vacancy
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => leaveSession(currentSession.id, w.id)}
+                              className="text-chalk/40 hover:text-danger text-xs px-1"
+                              title="Remove from waitlist"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
         </Modal>
       )}
 
-      {/* Confirm Join Modal (Price confirmation & 2-day quota check) */}
+      {/* Confirm Join Modal (Price confirmation & Player Name input) */}
       {confirmJoinSession && (
         <Modal
           isOpen={Boolean(confirmJoinSession)}
@@ -528,6 +653,19 @@ export default function SocialPlay() {
           subtitle={confirmJoinSession.title}
         >
           <div className="flex flex-col gap-4 text-xs">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-chalk/90">
+                Player / Participant Name:
+              </label>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Enter player name (e.g. Vraj Shah, Player 2)"
+                className="w-full rounded-xl border border-chalk/20 bg-court-600 px-3.5 py-2 text-xs text-chalk placeholder:text-chalk/40 focus:border-volt-400 focus:outline-none"
+              />
+            </div>
+
             <div className="rounded-xl border border-chalk/14 bg-court-700/60 p-4 space-y-2">
               <div className="flex justify-between">
                 <span className="text-chalk/70">Session:</span>
@@ -552,8 +690,7 @@ export default function SocialPlay() {
             </div>
 
             <div className="rounded-xl bg-court-600/50 p-3 text-chalk/70 text-[11px] leading-relaxed border border-chalk/10">
-              * Note: Enrolled sessions count towards your maximum 2 bookings per day (Rule BR-07).
-              Cancellation policy: Free cancellation until 4 hours before.
+              * Capacity is 8 players. If filled to 8/8, additional registrations are placed onto the auto-promoting waitlist queue.
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-chalk/10">

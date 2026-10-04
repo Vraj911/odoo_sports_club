@@ -60,18 +60,21 @@ import { financeApi } from "@/services/api/financeApi";
 export const memberStore = {
   getState: () => state,
 
-  setProfileFromMemberDto: (member: MemberDto | Partial<MemberDto>) => {
+  setProfileFromMemberDto: (member: MemberDto | Partial<MemberDto>, explicitTier?: string) => {
     const resolvedName =
       member.fullName ||
       [member.firstName, member.lastName].filter(Boolean).join(" ") ||
       state.profile.name;
     const resolvedCode = member.memberNumber || member.memberCode || state.profile.memberId;
-    const resolvedTier = (member.tier ||
+    const storedTier = member.email ? sessionStorage.getItem(`ccms_user_tier_${member.email.toLowerCase()}`) : null;
+    const resolvedTier = ((explicitTier || storedTier || member.tier ||
       (member.planName?.toLowerCase().includes("silver")
         ? "Silver"
         : member.planName?.toLowerCase().includes("junior")
         ? "Junior"
-        : "Gold")) as MemberProfile["tier"];
+        : member.planName?.toLowerCase().includes("platinum")
+        ? "Platinum"
+        : "Gold")) as MemberProfile["tier"]);
 
     state = {
       ...state,
@@ -89,7 +92,7 @@ export const memberStore = {
     notify();
   },
 
-  init: async (authenticatedEmail?: string) => {
+  init: async (authenticatedEmail?: string, explicitTier?: string) => {
     try {
       const members = await memberApi.listMembers();
       if (members && members.length > 0) {
@@ -101,7 +104,7 @@ export const memberStore = {
           if (found) target = found;
         }
         if (target) {
-          memberStore.setProfileFromMemberDto(target);
+          memberStore.setProfileFromMemberDto(target, explicitTier);
         }
       }
     } catch (e) {

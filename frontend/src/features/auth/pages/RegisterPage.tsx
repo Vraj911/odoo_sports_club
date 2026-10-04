@@ -75,30 +75,36 @@ export default function RegisterPage({}: PageProps) {
       });
       setIsLoading(false);
       const memberName = res?.fullName || values.fullName.trim();
-      loginAs("MEMBER", [], memberName, res?.id, values.email.trim());
+      loginAs("MEMBER", [], memberName, res?.id, values.email.trim(), values.tier);
       if (res) {
-        memberStore.setProfileFromMemberDto(res);
+        memberStore.setProfileFromMemberDto({ ...res, tier: values.tier as any }, values.tier);
       } else {
-        memberStore.setProfileFromMemberDto({
-          fullName: memberName,
-          email: values.email.trim(),
-          phone: values.phone.trim(),
-          tier: values.tier as any,
-        });
+        memberStore.setProfileFromMemberDto(
+          {
+            fullName: memberName,
+            email: values.email.trim(),
+            phone: values.phone.trim(),
+            tier: values.tier as any,
+          },
+          values.tier
+        );
       }
-      toast.success("Account created successfully!", `Welcome to Champions Club, ${memberName}`);
+      toast.success("Account created successfully!", `Welcome to Champions Club, ${memberName} (${values.tier} Member)`);
       go("/app");
     } catch (err) {
       console.warn("Backend registration error, fallback to demo login", err);
       setIsLoading(false);
-      loginAs("MEMBER", [], values.fullName, undefined, values.email.trim());
-      memberStore.setProfileFromMemberDto({
-        fullName: values.fullName.trim(),
-        email: values.email.trim(),
-        phone: values.phone.trim(),
-        tier: values.tier as any,
-      });
-      toast.success("Account created successfully!", `Welcome to Champions Club, ${values.fullName}`);
+      loginAs("MEMBER", [], values.fullName, undefined, values.email.trim(), values.tier);
+      memberStore.setProfileFromMemberDto(
+        {
+          fullName: values.fullName.trim(),
+          email: values.email.trim(),
+          phone: values.phone.trim(),
+          tier: values.tier as any,
+        },
+        values.tier
+      );
+      toast.success("Account created successfully!", `Welcome to Champions Club, ${values.fullName} (${values.tier} Member)`);
       go("/app");
     }
   };

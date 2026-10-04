@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 
-/** Three authenticated primary roles. Logged-out users see public routes. */
-export type PrimaryRole = "MEMBER" | "STAFF" | "ADMIN";
+/** Two authenticated primary roles. Logged-out users see public routes. */
+export type PrimaryRole = "MEMBER" | "STAFF";
 
-/** Staff capability groups — STAFF holds ≥0, ADMIN bypasses all. */
+/** Staff capability groups */
 export type PermissionGroup =
   | "FRONT_DESK"
   | "POS_BAR"
@@ -11,7 +11,7 @@ export type PermissionGroup =
   | "CRM"
   | "FINANCE";
 
-/** Granular permission keys per group and admin-only */
+/** Granular permission keys per group */
 export type GranularPermission =
   // FRONT_DESK
   | "members.view"
@@ -60,7 +60,6 @@ export type GranularPermission =
   | "finance.records"
   | "finance.revenue.view"
   | "finance.reports"
-  // ADMIN-ONLY
   | "members.delete"
   | "plans.manage"
   | "pricing.manage"
@@ -90,16 +89,14 @@ export type GranularPermission =
  * Permission keys:
  * - 'auth'        → any logged-in user
  * - 'member'      → MEMBER role only
- * - 'staff'       → any STAFF or ADMIN
- * - 'admin'       → ADMIN only
- * - PermissionGroup → STAFF with that group, or ADMIN
+ * - 'staff'       → any STAFF
+ * - PermissionGroup → STAFF with that group
  * - GranularPermission → fine-grained capability
  */
 export type PermissionKey =
   | "auth"
   | "member"
   | "staff"
-  | "admin"
   | PermissionGroup
   | GranularPermission;
 
@@ -122,8 +119,6 @@ export type NavGroupKey =
   | "crm"
   | "finance"
   | "hr"
-  | "owner"
-  | "admin"
   | "self";
 
 export interface PageProps {
@@ -154,4 +149,5 @@ export interface AuthUser {
   role: PrimaryRole;
   /** Permission groups assigned to this user (relevant for STAFF). */
   groups: PermissionGroup[];
+  tier?: string;
 }

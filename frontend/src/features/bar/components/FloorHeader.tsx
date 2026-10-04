@@ -21,7 +21,6 @@ export function FloorHeader({
 }: FloorHeaderProps) {
   const go = useGo();
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
 
   const { activeShift, tabs, clockInOutShift, dailyClosing } = useBarStore();
   const openTabsCount = tabs.filter((t) => t.status === "OPEN").length;
@@ -117,27 +116,14 @@ export function FloorHeader({
             <span className="hidden md:inline">Shift</span>
           </button>
 
-          {/* Daily Closing Button (ADMIN only) */}
+          {/* Daily Closing Button */}
           <button
-            onClick={() => {
-              if (isAdmin) {
-                go("/bar/closing");
-              } else {
-                alert("Access Restricted: Daily Closing (Z-Report) requires ADMIN authorization. Staff can view shift summary in /bar/shift.");
-              }
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              isAdmin
-                ? "bg-volt-400/15 text-volt-300 hover:bg-volt-400/25 border border-volt-400/30"
-                : "bg-white/5 text-white/50 hover:bg-white/10 border border-white/10"
-            }`}
-            title={isAdmin ? "Daily Closing Z-Report" : "Admin approval required for Daily Closing"}
+            onClick={() => go("/bar/closing")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-volt-400/15 text-volt-300 hover:bg-volt-400/25 border border-volt-400/30"
+            title="Daily Closing Z-Report"
           >
             <Lock className="w-3.5 h-3.5" />
             <span>Daily closing</span>
-            {!isAdmin && (
-              <span className="text-[10px] text-white/40 bg-white/10 px-1 rounded">Admin</span>
-            )}
           </button>
 
           {/* Live indicator badge */}

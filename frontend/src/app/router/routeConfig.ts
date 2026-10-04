@@ -4,23 +4,20 @@ import {
   Bell, ClipboardList, UserRoundPlus, Footprints, ScanLine, Wallet, Store, Zap, Boxes, PackagePlus, Tags, Truck,
   Undo2, Wrench, BarChart3, Wine, Table2, Clock, Lock, ChefHat, Contact, Target, FileSignature, Megaphone, Landmark,
   Briefcase, HandCoins, Building, Percent, TrendingUp, Scale, CalendarRange, UserCog, CalendarClock, Fingerprint,
-  Plane, Banknote, PartyPopper, CircleUser, Gauge, Activity, SlidersHorizontal, Ban, CheckCheck, Crown, FileBarChart,
-  Link2, Settings, LandPlot, Timer, BadgeIndianRupee, Calculator, MessageSquare, CalendarOff, Coins, MailCheck,
-  ShieldCheck, History, Sprout, type LucideIcon,
+  Plane, Banknote, PartyPopper, CircleUser, Gauge, type LucideIcon,
 } from "lucide-react";
 import type { LayoutKind, NavGroupKey, PermissionKey, Phase, RouteMeta } from "@/types/common";
 
 // ─── Shorthand permission key arrays ──────────────────────────────────
 const PUBLIC: PermissionKey[] = [];                          // No authentication required
-const MEMBER: PermissionKey[] = ["member"];                   // MEMBER or ADMIN
-const ALL_STAFF: PermissionKey[] = ["staff"];                 // Any STAFF role or ADMIN
-const DESK: PermissionKey[] = ["FRONT_DESK"];                 // STAFF w/ FRONT_DESK or ADMIN
-const SHOP: PermissionKey[] = ["SHOP_INVENTORY"];              // STAFF w/ SHOP_INVENTORY or ADMIN
-const BAR: PermissionKey[] = ["POS_BAR"];                      // STAFF w/ POS_BAR or ADMIN
-const CRM_ACCESS: PermissionKey[] = ["CRM"];                   // STAFF w/ CRM or ADMIN
-const LEADS_ACCESS: PermissionKey[] = ["crm.leads.view"];     // FRONT_DESK or CRM or ADMIN
-const FIN: PermissionKey[] = ["FINANCE"];                      // STAFF w/ FINANCE or ADMIN
-const ADM: PermissionKey[] = ["admin"];                        // ADMIN only
+const MEMBER: PermissionKey[] = ["member"];                   // MEMBER only
+const ALL_STAFF: PermissionKey[] = ["staff"];                 // Any STAFF role
+const DESK: PermissionKey[] = ["FRONT_DESK"];                 // STAFF w/ FRONT_DESK
+const SHOP: PermissionKey[] = ["SHOP_INVENTORY"];              // STAFF w/ SHOP_INVENTORY
+const BAR: PermissionKey[] = ["POS_BAR"];                      // STAFF w/ POS_BAR
+const CRM_ACCESS: PermissionKey[] = ["CRM"];                   // STAFF w/ CRM
+const LEADS_ACCESS: PermissionKey[] = ["crm.leads.view"];     // FRONT_DESK or CRM
+const FIN: PermissionKey[] = ["FINANCE"];                      // STAFF w/ FINANCE
 
 const r = (
   path: string,
@@ -143,45 +140,16 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/finance/reconciliation", "Reconciliation", FIN, 9, "finance", Scale), load: () => import("@/features/finance/pages/FinanceReconciliationPage") },
   { ...c("/finance/periods", "Periods", FIN, 9, "finance", CalendarRange), load: () => import("@/features/finance/pages/FinancePeriodsPage") },
 
-  // ─── HR (ADMIN ONLY) ────────────────────────────────────────────────
-  { ...c("/hr", "HR Overview", ADM, 10, "hr", UserCog), load: () => import("@/features/hr/pages/HrOverviewPage") },
-  { ...c("/hr/employees", "Employees", ADM, 10, "hr", Users), load: () => import("@/features/hr/pages/HrEmployeesPage") },
-  { ...c("/hr/employees/:id", "Employee", ADM, 10, "hr", User), load: () => import("@/features/hr/pages/HrEmployeeDetailPage") },
-  { ...c("/hr/roster", "Roster", ADM, 10, "hr", CalendarClock), load: () => import("@/features/hr/pages/HrRosterPage") },
-  { ...c("/hr/attendance", "Attendance", ADM, 10, "hr", Fingerprint), load: () => import("@/features/hr/pages/HrAttendancePage") },
-  { ...c("/hr/leave", "Leave", ADM, 10, "hr", Plane), load: () => import("@/features/hr/pages/HrLeavePage") },
-  { ...c("/hr/payroll", "Payroll", ADM, 10, "hr", Banknote), load: () => import("@/features/hr/pages/HrPayrollPage") },
-  { ...c("/hr/payroll/:runId", "Payroll Run", ADM, 10, "hr", Banknote), load: () => import("@/features/hr/pages/HrPayrollRunPage") },
-  { ...c("/hr/holidays", "Holidays", ADM, 10, "hr", PartyPopper), load: () => import("@/features/hr/pages/HrHolidaysPage") },
-
-  // ─── OWNER (ADMIN ONLY) ─────────────────────────────────────────────
-  { ...c("/owner", "Owner Dashboard", ADM, 11, "owner", Crown), load: () => import("@/features/owner/pages/OwnerDashboardPage") },
-  { ...c("/owner/reports", "Reports", ADM, 11, "owner", FileBarChart), load: () => import("@/features/owner/pages/OwnerReportsPage") },
-  { ...c("/owner/scheduled-reports", "Scheduled Reports", ADM, 11, "owner", CalendarClock), load: () => import("@/features/owner/pages/OwnerScheduledReportsPage") },
-  { ...c("/owner/share-links", "Share Links", ADM, 11, "owner", Link2), load: () => import("@/features/owner/pages/OwnerShareLinksPage") },
-
-  // ─── ADMIN (ADMIN ONLY - includes moved manager operations) ──────────
-  { ...c("/admin", "Admin Overview", ADM, 12, "admin", Settings), load: () => import("@/features/admin/pages/AdminOverviewPage") },
-  { ...c("/admin/calendar", "Operations Calendar", ADM, 11, "admin", CalendarDays), load: () => import("@/features/admin/pages/AdminOperationsCalendarPage") },
-  { ...c("/admin/utilisation", "Court Utilisation", ADM, 11, "admin", Activity), load: () => import("@/features/admin/pages/AdminUtilisationPage") },
-  { ...c("/admin/overrides", "Admin Overrides", ADM, 11, "admin", SlidersHorizontal), load: () => import("@/features/admin/pages/AdminOverridesPage") },
-  { ...c("/admin/blocks", "Court Blocks", ADM, 11, "admin", Ban), load: () => import("@/features/admin/pages/AdminCourtBlocksPage") },
-  { ...c("/admin/approvals", "Approvals", ADM, 11, "admin", CheckCheck), load: () => import("@/features/admin/pages/AdminApprovalsPage") },
-  { ...c("/admin/club", "Club Profile", ADM, 12, "admin", Building2), load: () => import("@/features/admin/pages/AdminClubProfilePage") },
-  { ...c("/admin/courts", "Courts Inventory", ADM, 12, "admin", LandPlot), load: () => import("@/features/admin/pages/AdminCourtsPage") },
-  { ...c("/admin/hours", "Opening Hours & Booking Rules", ADM, 12, "admin", Timer), load: () => import("@/features/admin/pages/AdminHoursPage") },
-  { ...c("/admin/plans", "Membership Plans", ADM, 12, "admin", BadgeCheck), load: () => import("@/features/admin/pages/AdminPlansPage") },
-  { ...c("/admin/pricing", "Pricing Rules & Simulator", ADM, 12, "admin", BadgeIndianRupee), load: () => import("@/features/admin/pages/AdminPricingPage") },
-  { ...c("/admin/taxes", "Taxes & GST Schedules", ADM, 12, "admin", Calculator), load: () => import("@/features/admin/pages/AdminTaxesPage") },
-  { ...c("/admin/social-templates", "Social Session Templates", ADM, 12, "admin", MessageSquare), load: () => import("@/features/admin/pages/AdminSocialTemplatesPage") },
-  { ...c("/admin/leave-types", "Leave Types Policy", ADM, 12, "admin", CalendarOff), load: () => import("@/features/admin/pages/AdminLeaveTypesPage") },
-  { ...c("/admin/salary-components", "Salary Components", ADM, 12, "admin", Coins), load: () => import("@/features/admin/pages/AdminSalaryComponentsPage") },
-  { ...c("/admin/notification-templates", "Notification Templates", ADM, 12, "admin", MailCheck), load: () => import("@/features/admin/pages/AdminNotificationTemplatesPage") },
-  { ...c("/admin/staff", "Staff Directory & Access", ADM, 12, "admin", UserCog), load: () => import("@/features/admin/pages/AdminStaffPage") },
-  { ...c("/admin/permission-groups", "Permission Groups Builder", ADM, 12, "admin", ShieldCheck), load: () => import("@/features/admin/pages/AdminPermissionGroupsPage") },
-  { ...c("/admin/users", "Staff & Access Matrix", ADM, 12, "admin", ShieldCheck), load: () => import("@/features/admin/pages/AdminStaffPage") },
-  { ...c("/admin/audit-log", "Immutable Audit Log", ADM, 12, "admin", History), load: () => import("@/features/admin/pages/AdminAuditLogPage") },
-  { ...c("/admin/seed", "Demo & Seed Data Engine", ADM, 12, "admin", Sprout), load: () => import("@/features/admin/pages/AdminSeedPage") },
+  // ─── HR ────────────────────────────────────────────────────────────
+  { ...c("/hr", "HR Overview", ALL_STAFF, 10, "hr", UserCog), load: () => import("@/features/hr/pages/HrOverviewPage") },
+  { ...c("/hr/employees", "Employees", ALL_STAFF, 10, "hr", Users), load: () => import("@/features/hr/pages/HrEmployeesPage") },
+  { ...c("/hr/employees/:id", "Employee", ALL_STAFF, 10, "hr", User), load: () => import("@/features/hr/pages/HrEmployeeDetailPage") },
+  { ...c("/hr/roster", "Roster", ALL_STAFF, 10, "hr", CalendarClock), load: () => import("@/features/hr/pages/HrRosterPage") },
+  { ...c("/hr/attendance", "Attendance", ALL_STAFF, 10, "hr", Fingerprint), load: () => import("@/features/hr/pages/HrAttendancePage") },
+  { ...c("/hr/leave", "Leave", ALL_STAFF, 10, "hr", Plane), load: () => import("@/features/hr/pages/HrLeavePage") },
+  { ...c("/hr/payroll", "Payroll", ALL_STAFF, 10, "hr", Banknote), load: () => import("@/features/hr/pages/HrPayrollPage") },
+  { ...c("/hr/payroll/:runId", "Payroll Run", ALL_STAFF, 10, "hr", Banknote), load: () => import("@/features/hr/pages/HrPayrollRunPage") },
+  { ...c("/hr/holidays", "Holidays", ALL_STAFF, 10, "hr", PartyPopper), load: () => import("@/features/hr/pages/HrHolidaysPage") },
 ];
 
 export const hasParams = (path: string) => path.includes(":");

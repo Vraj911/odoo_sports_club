@@ -8,7 +8,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   /** False until sessionStorage has been read on the client. */
   ready: boolean;
-  loginAs: (role: PrimaryRole, groups?: PermissionGroup[], name?: string, id?: string, email?: string) => void;
+  loginAs: (role: PrimaryRole, groups?: PermissionGroup[], name?: string, id?: string, email?: string, tier?: string) => void;
   logout: () => void;
 }
 
@@ -26,9 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(raw) as AuthUser;
         // Migration: ensure groups array exists (old sessions may lack it)
         if (!Array.isArray(parsed.groups)) parsed.groups = [];
+        const savedTier = parsed.tier || (parsed.email ? sessionStorage.getItem(`ccms_user_tier_${parsed.email.toLowerCase()}`) : null) || undefined;
+        if (savedTier && !parsed.tier) {
+          parsed.tier = savedTier;
+        }
         setUser(parsed);
         if (parsed.role === "MEMBER") {
-          memberStore.init(parsed.email);
+          memberStore.init(parsed.email, parsed.tier);
         }
       }
     } catch {
@@ -38,12 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginAs = useCallback(
-    (role: PrimaryRole, groups: PermissionGroup[] = [], name?: string, id?: string, email?: string) => {
-      const next: AuthUser = { id, name: name || `Demo ${ROLE_LABELS[role]}`, role, groups, email };
+    (role: PrimaryRole, groups: PermissionGroup[] = [], name?: string, id?: string, email?: string, tier?: string) => {
+      const next: AuthUser = { id, name: name || `Demo ${ROLE_LABELS[role]}`, role, groups, email, tier };
       sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+      if (email && tier) {
+        sessionStorage.setItem(`ccms_user_tier_${email.toLowerCase()}`, tier);
+      }
       setUser(next);
       if (role === "MEMBER") {
-        memberStore.init(email);
+        memberStore.init(email, tier);
       }
     },
     []
