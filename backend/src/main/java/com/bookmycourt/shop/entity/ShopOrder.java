@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,10 @@ public class ShopOrder extends BaseEntity {
 
     @Column(name = "order_number", nullable = false, unique = true)
     private String orderNumber;
+
+    /** COUNTER (POS) or ONLINE. */
+    @Column(nullable = false, length = 10)
+    private String channel = "ONLINE";
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id")
@@ -43,8 +48,18 @@ public class ShopOrder extends BaseEntity {
     @Column(name = "delivery_address")
     private String deliveryAddress;
 
+    @Column(name = "delivery_note")
+    private String deliveryNote;
+
     @Column(nullable = false)
     private String status = "PLACED";
+
+    /** BR-09: tier discount rule snapshot. */
+    @Column(name = "discount_percent", nullable = false)
+    private BigDecimal discountPercent = BigDecimal.ZERO;
+
+    @Column(name = "discount_source")
+    private String discountSource;
 
     @Column(nullable = false)
     private BigDecimal subtotal = BigDecimal.ZERO;
@@ -55,8 +70,20 @@ public class ShopOrder extends BaseEntity {
     @Column(name = "tax_total", nullable = false)
     private BigDecimal taxTotal = BigDecimal.ZERO;
 
+    @Column(name = "delivery_fee", nullable = false)
+    private BigDecimal deliveryFee = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private BigDecimal total = BigDecimal.ZERO;
+
+    @Column(name = "refunded_total", nullable = false)
+    private BigDecimal refundedTotal = BigDecimal.ZERO;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    @Column(name = "idempotency_key")
+    private String idempotencyKey;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")

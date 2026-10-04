@@ -32,6 +32,14 @@ public class Product extends BaseEntity {
     @Column(name = "tax_rate", nullable = false)
     private BigDecimal taxRate = BigDecimal.ZERO;
 
+    /** SHP-01: HSN / GST code. */
+    @Column(name = "hsn_code", length = 10)
+    private String hsnCode;
+
+    /** FIN-07: variant prices already include GST. */
+    @Column(name = "tax_inclusive", nullable = false)
+    private boolean taxInclusive = false;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 

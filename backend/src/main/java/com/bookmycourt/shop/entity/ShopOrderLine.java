@@ -42,8 +42,15 @@ public class ShopOrderLine {
     @Column(name = "sku_snapshot", nullable = false)
     private String skuSnapshot;
 
+    @Column(name = "hsn_code", length = 10)
+    private String hsnCode;
+
     @Column(nullable = false)
     private Integer quantity;
+
+    /** SHP-13: how many units came back (stock restored or written off). */
+    @Column(name = "returned_quantity", nullable = false)
+    private Integer returnedQuantity = 0;
 
     @Column(name = "unit_price", nullable = false)
     private BigDecimal unitPrice;
@@ -51,8 +58,17 @@ public class ShopOrderLine {
     @Column(name = "tax_rate", nullable = false)
     private BigDecimal taxRate = BigDecimal.ZERO;
 
+    @Column(name = "tax_inclusive", nullable = false)
+    private boolean taxInclusive = false;
+
+    @Column(name = "discount_percent", nullable = false)
+    private BigDecimal discountPercent = BigDecimal.ZERO;
+
     @Column(name = "discount_amount", nullable = false)
     private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "tax_amount", nullable = false)
+    private BigDecimal taxAmount = BigDecimal.ZERO;
 
     @Column(name = "line_total", nullable = false)
     private BigDecimal lineTotal;

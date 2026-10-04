@@ -12,6 +12,8 @@ public record ProductResponse(
         String description,
         String brand,
         BigDecimal taxRate,
+        String hsnCode,
+        boolean taxInclusive,
         boolean active,
         List<ProductVariantResponse> variants,
         Instant createdAt

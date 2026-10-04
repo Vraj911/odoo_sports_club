@@ -9,10 +9,15 @@ public record ShopOrderLineResponse(
         String productName,
         String variantName,
         String sku,
+        String hsnCode,
         Integer quantity,
+        Integer returnedQuantity,
         BigDecimal unitPrice,
         BigDecimal taxRate,
+        boolean taxInclusive,
+        BigDecimal discountPercent,
         BigDecimal discountAmount,
+        BigDecimal taxAmount,
         BigDecimal lineTotal
 ) {
 }
