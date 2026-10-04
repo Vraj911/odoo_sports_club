@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useCallback, useMemo } from "react";
+import { useSyncExternalStore, useCallback, useMemo, useEffect } from "react";
 import type {
   CartItem,
   MemberTier,
@@ -20,17 +20,193 @@ import type {
   OrderStatus,
   PaymentMethod,
   POSSplitItem,
+  Sport,
 } from "./types";
-import { TIER_DISCOUNTS } from "./types";
+import { TIER_DISCOUNTS, CATEGORY_EMOJI } from "./types";
 import {
   SAMPLE_PRODUCTS,
-  getProductBySlug,
-  getProductById,
-  getProductsByCategory,
-  getProductsBySport,
-  getFeaturedProducts,
-  getTotalStock,
+  getProductBySlug as getSampleProductBySlug,
+  getProductById as getSampleProductById,
+  getProductsByCategory as getSampleProductsByCategory,
+  getProductsBySport as getSampleProductsBySport,
+  getFeaturedProducts as getSampleFeaturedProducts,
+  getTotalStock as getSampleTotalStock,
 } from "./sampleData";
+import {
+  shopApi,
+  type BackendProductResponse,
+  type BackendShopOrderResponse,
+} from "@/services/api/shopApi";
+
+export function mapBackendProduct(bp: BackendProductResponse): Product {
+  let sport: Sport = "tennis";
+  const cat = bp.category?.toLowerCase() || "";
+  const name = bp.name?.toLowerCase() || "";
+  const desc = bp.description?.toLowerCase() || "";
+
+  if (
+    cat.includes("badminton") ||
+    name.includes("badminton") ||
+    name.includes("astrox") ||
+    name.includes("shuttle") ||
+    name.includes("nanoflare") ||
+    name.includes("bg80") ||
+    name.includes("bg65") ||
+    name.includes("mavis") ||
+    desc.includes("badminton")
+  ) {
+    sport = "badminton";
+  } else if (
+    cat.includes("padel") ||
+    name.includes("padel") ||
+    name.includes("bullpadel") ||
+    name.includes("vertex") ||
+    desc.includes("padel")
+  ) {
+    sport = "padel";
+  } else if (
+    cat.includes("cricket") ||
+    name.includes("cricket") ||
+    desc.includes("cricket")
+  ) {
+    sport = "cricket-net";
+  }
+
+  const axisMap = new Map<string, Set<string>>();
+  const variants: ProductVariant[] = (bp.variants || []).map((v) => {
+    let axes: Record<string, string> = {};
+    if (v.attributes) {
+      try {
+        axes = typeof v.attributes === "string" ? JSON.parse(v.attributes) : (v.attributes || {});
+      } catch {
+        axes = { Option: v.variantName };
+      }
+    } else {
+      axes = { Option: v.variantName };
+    }
+
+    Object.entries(axes).forEach(([k, val]) => {
+      if (!axisMap.has(k)) axisMap.set(k, new Set());
+      axisMap.get(k)!.add(val);
+    });
+
+    return {
+      id: v.id,
+      sku: v.sku,
+      axes,
+      stock: v.availableStock !== undefined ? v.availableStock : v.onHand,
+      price: Number(v.price),
+    };
+  });
+
+  const variantAxes = Array.from(axisMap.entries()).map(([label, set]) => ({
+    label,
+    options: Array.from(set),
+  }));
+
+  const basePrice = variants[0]?.price ?? 0;
+  const mrp = Math.round(basePrice * 1.15);
+
+  const validCategories: ProductCategory[] = [
+    "rackets",
+    "balls",
+    "shoes",
+    "apparel",
+    "grips",
+    "strings",
+    "bags",
+    "accessories",
+  ];
+  const category: ProductCategory = validCategories.includes(cat as ProductCategory)
+    ? (cat as ProductCategory)
+    : "accessories";
+
+  const slug = bp.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  const emoji = CATEGORY_EMOJI[category] || "🏸";
+  const imageSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' fill='%231c2d4d'%3E%3Crect width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.35em' fill='%23d5f63a' font-family='sans-serif' font-size='48'%3E${encodeURIComponent(emoji)}%3C/text%3E%3C/svg%3E`;
+
+  return {
+    id: bp.id,
+    slug,
+    name: bp.name,
+    brand: bp.brand || "Champions Club",
+    category,
+    sport,
+    description:
+      bp.description ||
+      `${bp.brand} professional grade equipment available at Champions Club Pro Shop.`,
+    features: [
+      `${bp.brand} Official Equipment`,
+      "100% Genuine Certified Goods",
+      "Club Member Warranty Included",
+      "Ready for Same-Day Court Pickup",
+    ],
+    basePrice,
+    mrp,
+    variantAxes,
+    variants,
+    images: [imageSvg],
+    rating: 4.8,
+    reviewCount: 28,
+    tags: [category, sport, (bp.brand || "club").toLowerCase()],
+    isBestseller: bp.variants.some((v) => v.onHand > 30),
+    isNew: true,
+  };
+}
+
+export function mapBackendOrder(bo: BackendShopOrderResponse): ConsoleOrder {
+  const fulfillmentType = bo.fulfillmentMethod === "DELIVERY" ? "DELIVERY" : "PICKUP";
+  const items: CartItem[] = (bo.items || []).map((line) => ({
+    productId: line.productVariantId,
+    variantId: line.productVariantId,
+    quantity: line.quantity,
+    reservedAt: Date.now(),
+    name: line.productName || "Sports Item",
+    brand: "Champions Club",
+    unitPrice: line.unitPrice,
+    mrp: Math.round(line.unitPrice * 1.15),
+    variantLabel: line.variantName || line.sku || "Standard",
+    stock: 99,
+  }));
+
+  const createdTime = bo.createdAt
+    ? new Date(bo.createdAt).toLocaleString("en-IN")
+    : "Recently";
+  const memberTier: MemberTier = bo.memberId ? "Gold" : "Guest";
+
+  return {
+    id: bo.id,
+    orderNumber: bo.orderNumber,
+    customerName: bo.memberName || bo.guestName || "Club Customer",
+    customerPhone: bo.guestPhone || "+91 99999 00000",
+    customerEmail: undefined,
+    memberId: bo.memberId,
+    memberTier,
+    channel: bo.guestName?.includes("Walk-in") ? "COUNTER" : "ONLINE",
+    fulfillmentType,
+    deliveryAddress: bo.deliveryAddress,
+    slot: "Standard Fulfillment",
+    items,
+    subtotal: bo.subtotal,
+    discount: bo.discountTotal,
+    discountLabel: bo.discountTotal > 0 ? "Member Tier Discount" : undefined,
+    tax: bo.taxTotal,
+    total: bo.total,
+    status: (bo.status as OrderStatus) || "PLACED",
+    paymentMethod: "UPI",
+    pickupCode: bo.orderNumber,
+    createdAt: bo.createdAt || new Date().toISOString(),
+    updatedAt: bo.createdAt || new Date().toISOString(),
+    timeline: [
+      { status: "PLACED", timestamp: createdTime, note: "Order recorded in backend database" },
+      { status: bo.status, timestamp: createdTime, note: `Status: ${bo.status}` },
+    ],
+  };
+}
 
 const RESERVATION_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -517,6 +693,8 @@ const DEFAULT_POS_SESSIONS: POSCartSession[] = [
 
 // ─── Full Store State Interface ─────────────────────────────────────────
 interface FullShopStoreState {
+  products: Product[];
+  isLoading: boolean;
   // Public web shop state
   cart: CartItem[];
   searchQuery: string;
@@ -538,6 +716,8 @@ interface FullShopStoreState {
 }
 
 let state: FullShopStoreState = {
+  products: SAMPLE_PRODUCTS,
+  isLoading: false,
   cart: [],
   searchQuery: "",
   categoryFilter: "all",
@@ -552,6 +732,65 @@ let state: FullShopStoreState = {
   returns: INITIAL_RETURNS,
   restringJobs: INITIAL_RESTRING,
 };
+
+let isSyncingBackend = false;
+export async function syncFromBackend(): Promise<void> {
+  if (isSyncingBackend) return;
+  isSyncingBackend = true;
+  state = { ...state, isLoading: true };
+  notify();
+
+  try {
+    const [backendProducts, backendOrders] = await Promise.all([
+      shopApi.listProducts().catch(() => null),
+      shopApi.listOrders().catch(() => null),
+    ]);
+
+    if (backendProducts && backendProducts.length > 0) {
+      const mapped = backendProducts.map(mapBackendProduct);
+
+      // Update on-hand stock map from backend variants
+      backendProducts.forEach((bp) => {
+        bp.variants?.forEach((v) => {
+          const avail = v.availableStock !== undefined ? v.availableStock : v.onHand;
+          onHandStock.set(v.id, avail);
+        });
+      });
+
+      state = {
+        ...state,
+        products: mapped,
+      };
+    }
+
+    if (backendOrders && backendOrders.length > 0) {
+      const mappedOrders = backendOrders.map(mapBackendOrder);
+      const existingIds = new Set(mappedOrders.map((o) => o.id));
+      const existingNums = new Set(mappedOrders.map((o) => o.orderNumber));
+      const remainingInitial = state.orders.filter(
+        (o) => !existingIds.has(o.id) && !existingNums.has(o.orderNumber)
+      );
+
+      state = {
+        ...state,
+        orders: [...mappedOrders, ...remainingInitial],
+      };
+    }
+  } catch (err) {
+    console.warn("Failed to sync shop data from backend:", err);
+  } finally {
+    isSyncingBackend = false;
+    state = { ...state, isLoading: false };
+    notify();
+  }
+}
+
+// Auto-sync in browser environment
+if (typeof window !== "undefined") {
+  setTimeout(() => {
+    syncFromBackend();
+  }, 100);
+}
 
 const listeners = new Set<() => void>();
 function notify() {
@@ -994,22 +1233,44 @@ export const shopStore = {
     notify();
 
     // Sync POS checkout with backend
-    import("@/services/api/shopApi").then(({ shopApi }) => {
-      shopApi
-        .posCheckout({
-          memberId: active.customer.memberId,
-          customerName: active.customer.name,
-          customerPhone: active.customer.phone,
-          items: active.items.map((i) => ({
-            variantId: i.variantId,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-          })),
-          paymentMethod: params.paymentMethod,
-          tenderedCash: params.tenderedCash,
-        })
-        .catch(() => {});
-    });
+    shopApi
+      .posCheckout({
+        memberId:
+          active.customer.memberId &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            active.customer.memberId
+          )
+            ? active.customer.memberId
+            : undefined,
+        guestName: active.customer.name || "Walk-in Customer",
+        guestPhone: active.customer.phone,
+        items: active.items.map((i) => ({
+          productVariantId: i.variantId,
+          quantity: i.quantity,
+        })),
+        paymentMethod: params.paymentMethod === "SPLIT" ? "CASH" : params.paymentMethod,
+        tendered: params.tenderedCash,
+      })
+      .then((backendOrder) => {
+        if (backendOrder && backendOrder.id) {
+          state = {
+            ...state,
+            orders: state.orders.map((o) =>
+              o.id === counterOrder.id
+                ? {
+                    ...o,
+                    id: backendOrder.id,
+                    orderNumber: backendOrder.orderNumber,
+                  }
+                : o
+            ),
+          };
+          notify();
+        }
+      })
+      .catch((err) => {
+        console.warn("POS checkout backend sync error:", err);
+      });
 
     return receipt;
   },
@@ -1061,6 +1322,14 @@ export const shopStore = {
       ),
     };
     notify();
+
+    // Sync status with backend
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order.id);
+    if (isUuid) {
+      shopApi
+        .updateOrderStatus(order.id, nextStatus, note)
+        .catch((err) => console.warn("Failed to sync order status to backend:", err));
+    }
   },
 
   verifyPickupCode: (code: string): ConsoleOrder | undefined => {
@@ -1105,6 +1374,14 @@ export const shopStore = {
       ),
     };
     notify();
+
+    // Sync cancellation with backend
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order.id);
+    if (isUuid) {
+      shopApi
+        .cancelOrder(order.id, reason)
+        .catch((err) => console.warn("Failed to cancel order in backend:", err));
+    }
   },
 
   // ─── Phase 6B: Inventory Adjustments & Movements ──────────────────────
@@ -1141,7 +1418,40 @@ export const shopStore = {
       movements: [movement, ...state.movements],
     };
     notify();
+
+    // Call backend API if variantId is a valid UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.variantId);
+    if (isUuid) {
+      const movementType =
+        params.type === "receipt"
+          ? "RECEIPT"
+          : params.type === "damage"
+          ? "DAMAGE"
+          : params.qtyDelta >= 0
+          ? "ADJUSTMENT_IN"
+          : "ADJUSTMENT_OUT";
+
+      shopApi
+        .recordStockMovement({
+          productVariantId: params.variantId,
+          movementType,
+          quantity: Math.abs(params.qtyDelta),
+          sourceType: "ADJUSTMENT",
+          notes: `${params.reason} (by ${params.staffName})`,
+        })
+        .catch((err) => console.warn("Failed to sync stock movement to backend:", err));
+    }
   },
+
+  addConsoleOrder: (order: ConsoleOrder) => {
+    state = {
+      ...state,
+      orders: [order, ...state.orders],
+    };
+    notify();
+  },
+
+  syncFromBackend: () => syncFromBackend(),
 
   // ─── Phase 6B: Purchase Orders ────────────────────────────────────────
   createPurchaseOrder: (params: {
@@ -1425,7 +1735,7 @@ export function useShopConsole() {
   // Inventory Table Projection with On-Hand, Reserved, Available
   const inventoryList = useMemo<VariantStockInfo[]>(() => {
     const list: VariantStockInfo[] = [];
-    SAMPLE_PRODUCTS.forEach((prod) => {
+    store.products.forEach((prod) => {
       prod.variants.forEach((v) => {
         const detail = getVariantStockDetail(v.id);
         const variantLabel =
@@ -1449,12 +1759,12 @@ export function useShopConsole() {
           reorderLevel: 3,
           suggestedReorderQty: 10,
           supplier: prod.brand === "Yonex" ? "Yonex Sunrise India" : `${prod.brand} India`,
-          lastMovementDate: "2026-10-02",
+          lastMovementDate: "2026-10-04",
         });
       });
     });
     return list;
-  }, [store.movements]);
+  }, [store.products, store.movements]);
 
   // Low stock items: available <= reorderLevel
   const lowStockItems = useMemo(() => {
@@ -1506,6 +1816,7 @@ export function useShopConsole() {
     createRestringJob: shopStore.createRestringJob,
     updateRestringStatus: shopStore.updateRestringStatus,
     addRestringToPOS: shopStore.addRestringToPOS,
+    syncFromBackend: shopStore.syncFromBackend,
   };
 }
 
@@ -1513,8 +1824,15 @@ export function useShopConsole() {
 export function useShop() {
   const store = useSyncExternalStore(subscribe, getSnapshot);
 
+  // Auto trigger backend sync if products not yet loaded
+  useEffect(() => {
+    if (typeof window !== "undefined" && store.products.length <= SAMPLE_PRODUCTS.length) {
+      syncFromBackend();
+    }
+  }, []);
+
   const filteredProducts = useMemo(() => {
-    let products = [...SAMPLE_PRODUCTS];
+    let products = [...store.products];
 
     if (store.categoryFilter !== "all") {
       products = products.filter((p) => p.category === store.categoryFilter);
@@ -1551,7 +1869,7 @@ export function useShop() {
     }
 
     return products;
-  }, [store.categoryFilter, store.sportFilter, store.searchQuery, store.sortBy]);
+  }, [store.products, store.categoryFilter, store.sportFilter, store.searchQuery, store.sortBy]);
 
   const cartSubtotal = useMemo(
     () => store.cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
@@ -1583,9 +1901,47 @@ export function useShop() {
     [cartSubtotal]
   );
 
+  const getProductBySlug = useCallback(
+    (slug: string): Product | undefined => {
+      return (
+        store.products.find((p) => p.slug === slug) ||
+        getSampleProductBySlug(slug)
+      );
+    },
+    [store.products]
+  );
+
+  const getProductById = useCallback(
+    (id: string): Product | undefined => {
+      return (
+        store.products.find((p) => p.id === id) ||
+        getSampleProductById(id)
+      );
+    },
+    [store.products]
+  );
+
+  const getProductsByCategory = useCallback(
+    (category: ProductCategory): Product[] => {
+      return store.products.filter((p) => p.category === category);
+    },
+    [store.products]
+  );
+
+  const getFeaturedProducts = useCallback((): Product[] => {
+    return store.products.filter((p) => p.isBestseller || p.isNew).slice(0, 8);
+  }, [store.products]);
+
+  const getTotalStock = useCallback((product: Product): number => {
+    return product.variants.reduce((sum, v) => {
+      const detail = getVariantStockDetail(v.id);
+      return sum + detail.available;
+    }, 0);
+  }, []);
+
   return {
     ...store,
-    products: SAMPLE_PRODUCTS,
+    products: store.products,
     filteredProducts,
     cartSubtotal,
     cartItemCount,
@@ -1605,5 +1961,6 @@ export function useShop() {
     getProductsByCategory,
     getFeaturedProducts,
     getTotalStock,
+    syncFromBackend: shopStore.syncFromBackend,
   };
 }

@@ -67,6 +67,9 @@ export const apiClient = {
   put: <T>(url: string, data?: unknown) =>
     apiFetch<T>({ method: "PUT", url, data }),
 
+  patch: <T>(url: string, data?: unknown) =>
+    apiFetch<T>({ method: "PATCH", url, data }),
+
   delete: <T>(url: string) =>
     apiFetch<T>({ method: "DELETE", url }),
 };

@@ -114,8 +114,7 @@ export const routeConfig: RouteMeta[] = [
   { ...c("/bar/table/:id", "Table", BAR, 7, "bar", Table2), load: () => import("@/features/bar/pages/BarTablePage") },
   { ...c("/bar/tabs", "Open Tabs", BAR, 7, "bar", Beer), load: () => import("@/features/bar/pages/BarTabsPage") },
   { ...c("/bar/bill/:id", "Bill", BAR, 7, "bar", Receipt), load: () => import("@/features/bar/pages/BarBillPage") },
-  { ...c("/bar/shift", "Shift", BAR, 7, "bar", Clock), load: () => import("@/features/bar/pages/BarShiftPage") },
-  { ...c("/bar/closing", "Closing", ADM, 7, "bar", Lock), load: () => import("@/features/bar/pages/BarClosingPage") }, // ADMIN only
+  { ...c("/bar/closing", "Closing", BAR, 7, "bar", Lock), load: () => import("@/features/bar/pages/BarClosingPage") },
   { ...c("/kds", "Kitchen Display", BAR, 7, "bar", ChefHat), load: () => import("@/features/bar/pages/KDSPage") },
 
   // ─── CRM ────────────────────────────────────────────────────────────

@@ -39,6 +39,8 @@ interface QuickItem {
 export default function ShopQuickSalePage() {
   const { user } = useAuth();
   const {
+    products,
+    inventoryList,
     posAddToCart,
     chargePOSCart,
     lastReceipt,
@@ -54,114 +56,72 @@ export default function ShopQuickSalePage() {
     orderNumber?: string;
   }>({ open: false, message: "" });
 
-  // Curated high-velocity pins
-  const quickPins: QuickItem[] = useMemo(
-    () => [
+  // Curated high-velocity pins derived from live inventory
+  const quickPins: QuickItem[] = useMemo(() => {
+    const candidates = inventoryList.filter(
+      (i) =>
+        i.category === "grips" ||
+        i.category === "balls" ||
+        i.category === "strings" ||
+        i.category === "accessories"
+    );
+
+    if (candidates.length > 0) {
+      const colors = [
+        "from-blue-600/30 to-indigo-600/30 border-blue-500/40",
+        "from-amber-600/30 to-yellow-600/30 border-amber-500/40",
+        "from-emerald-600/30 to-teal-600/30 border-emerald-500/40",
+        "from-red-600/30 to-rose-600/30 border-red-500/40",
+        "from-cyan-600/30 to-blue-600/30 border-cyan-500/40",
+        "from-purple-600/30 to-violet-600/30 border-purple-500/40",
+        "from-lime-600/30 to-emerald-600/30 border-lime-500/40",
+        "from-pink-600/30 to-rose-600/30 border-pink-500/40",
+      ];
+      const icons: Record<string, string> = {
+        grips: "🤝",
+        balls: "🎾",
+        strings: "🧵",
+        accessories: "🏅",
+        rackets: "🏸",
+      };
+
+      return candidates.slice(0, 8).map((item, idx) => ({
+        id: `QP-${idx + 1}`,
+        name: `${item.productName} (${item.variantLabel})`,
+        brand: item.brand,
+        category: item.category.toUpperCase(),
+        price: item.price,
+        icon: icons[item.category] || "⚡",
+        color: colors[idx % colors.length]!,
+        sku: item.sku,
+        productId: item.productId,
+        variantId: item.variantId,
+      }));
+    }
+
+    return [
       {
         id: "QP-1",
         name: "Yonex Super Grap (Pack of 3)",
         brand: "Yonex",
         category: "Grip",
-        price: 350,
+        price: 399,
         icon: "🏸",
         color: "from-blue-600/30 to-indigo-600/30 border-blue-500/40",
-        sku: "YNX-GRIP-3P",
-        productId: "PRD-001",
-        variantId: "V-001B",
+        sku: "YNX-AC102-WHT",
+        productId: "a0000001-0000-0000-0000-000000000030",
+        variantId: "b0000001-0000-0000-0000-000000000040",
       },
-      {
-        id: "QP-2",
-        name: "Wilson US Open Balls (Can of 3)",
-        brand: "Wilson",
-        category: "Tennis Balls",
-        price: 499,
-        icon: "🎾",
-        color: "from-amber-600/30 to-yellow-600/30 border-amber-500/40",
-        sku: "WIL-USO-CAN3",
-        productId: "PRD-003",
-        variantId: "V-003A",
-      },
-      {
-        id: "QP-3",
-        name: "Yonex BG65 Ti String (Pre-cut)",
-        brand: "Yonex",
-        category: "Strings",
-        price: 599,
-        icon: "🧵",
-        color: "from-emerald-600/30 to-teal-600/30 border-emerald-500/40",
-        sku: "YNX-BG65TI",
-        productId: "PRD-001",
-        variantId: "V-001A",
-      },
-      {
-        id: "QP-4",
-        name: "Babolat RPM Blast 1.25mm String",
-        brand: "Babolat",
-        category: "Strings",
-        price: 1100,
-        icon: "⚡",
-        color: "from-red-600/30 to-rose-600/30 border-red-500/40",
-        sku: "BAB-RPM-125",
-        productId: "PRD-002",
-        variantId: "V-002B",
-      },
-      {
-        id: "QP-5",
-        name: "Yonex Mavis 350 Shuttles (Tube of 6)",
-        brand: "Yonex",
-        category: "Shuttles",
-        price: 750,
-        icon: "🏸",
-        color: "from-cyan-600/30 to-blue-600/30 border-cyan-500/40",
-        sku: "YNX-MAV350-YEL",
-        productId: "PRD-001",
-        variantId: "V-001B",
-      },
-      {
-        id: "QP-6",
-        name: "NOX Pro Titanium Padel Balls",
-        brand: "NOX",
-        category: "Padel Balls",
-        price: 650,
-        icon: "🎾",
-        color: "from-purple-600/30 to-violet-600/30 border-purple-500/40",
-        sku: "NOX-PADEL-BALL3",
-        productId: "PRD-005",
-        variantId: "V-005A",
-      },
-      {
-        id: "QP-7",
-        name: "Champions Club Headband (Lime)",
-        brand: "Champions Club",
-        category: "Accessory",
-        price: 299,
-        icon: "🏅",
-        color: "from-lime-600/30 to-emerald-600/30 border-lime-500/40",
-        sku: "CC-HB-LME",
-        productId: "PRD-074",
-        variantId: "V-074C",
-      },
-      {
-        id: "QP-8",
-        name: "Restring Service (Express Same-day)",
-        brand: "Workshop",
-        category: "Service",
-        price: 850,
-        icon: "🔧",
-        color: "from-orange-600/30 to-amber-600/30 border-orange-500/40",
-        sku: "SRV-EXPRESS-RST",
-        productId: "PRD-002",
-        variantId: "V-002C",
-      },
-    ],
-    []
-  );
+    ];
+  }, [inventoryList]);
 
   // Single tap opens quick checkout sheet
   const handleTapItem = (item: QuickItem) => {
-    // Find corresponding product and variant
-    const prod = SAMPLE_PRODUCTS.find((p) => p.id === item.productId) || SAMPLE_PRODUCTS[0];
+    // Find corresponding product and variant from live products
+    const prod = products.find((p) => p.id === item.productId) || products[0];
+    if (!prod) return;
     const variant = prod.variants.find((v) => v.id === item.variantId) || prod.variants[0];
+    if (!variant) return;
 
     const res = posAddToCart(prod, variant, 1);
     if (!res.ok) {

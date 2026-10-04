@@ -1,79 +1,143 @@
 import { apiClient } from "@/lib/axios";
 
-export interface ProductVariantDto {
-  id: string;
+export interface BackendVariantResponse {
+  id: string; // UUID
+  productId: string; // UUID
+  productName: string;
   sku: string;
-  barcode?: string;
-  axes: Record<string, string>;
+  variantName: string;
+  attributes: string; // JSON string or raw text
   price: number;
-  stock: number;
-  reservedStock?: number;
-  isQuickSale?: boolean;
+  taxRate: number;
+  onHand: number;
+  reserved: number;
+  availableStock: number;
+  reorderLevel: number;
+  isLowStock: boolean;
+  active: boolean;
 }
 
-export interface ProductDto {
-  id: string;
-  name: string;
-  slug: string;
-  brand: string;
+export interface BackendProductResponse {
+  id: string; // UUID
   category: string;
-  sport: string;
-  description?: string;
-  basePrice: number;
-  mrp: number;
-  images: string[];
-  variants: ProductVariantDto[];
+  name: string;
+  description: string;
+  brand: string;
+  taxRate: number;
+  active: boolean;
+  variants: BackendVariantResponse[];
+  createdAt: string;
 }
 
-export interface PosCheckoutItemRequest {
-  variantId: string;
+export interface BackendShopOrderLineResponse {
+  id: string;
+  productVariantId: string;
+  productName: string;
+  variantName: string;
+  sku: string;
   quantity: number;
   unitPrice: number;
+  taxRate: number;
+  discountAmount: number;
+  lineTotal: number;
 }
 
-export interface PosCheckoutRequest {
-  memberId?: string;
-  customerName?: string;
-  customerPhone?: string;
-  items: PosCheckoutItemRequest[];
-  paymentMethod: "CASH" | "CARD" | "UPI" | "SPLIT";
-  tenderedCash?: number;
-  splitDetails?: { method: string; amount: number }[];
-  cashShiftId?: string;
-}
-
-export interface PosCheckoutResponse {
-  orderId: string;
+export interface BackendShopOrderResponse {
+  id: string; // UUID
   orderNumber: string;
+  memberId?: string;
+  memberName?: string;
+  guestName?: string;
+  guestPhone?: string;
+  fulfillmentMethod: string;
+  deliveryAddress?: string;
+  status: string;
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
   total: number;
-  paymentId: string;
-  receiptNo: string;
-  changeDue?: number;
+  items: BackendShopOrderLineResponse[];
+  createdAt: string;
+}
+
+export interface CreateShopOrderPayload {
+  memberId?: string;
+  guestName?: string;
+  guestPhone?: string;
+  fulfillmentMethod: "PICKUP" | "DELIVERY";
+  deliveryAddress?: string;
+  items: {
+    productVariantId: string;
+    quantity: number;
+  }[];
+}
+
+export interface PosCheckoutPayload {
+  memberId?: string;
+  guestName?: string;
+  guestPhone?: string;
+  items: {
+    productVariantId: string;
+    quantity: number;
+  }[];
+  paymentMethod: string; // "CASH" | "CARD" | "UPI"
+  tendered?: number;
+}
+
+export interface StockMovementPayload {
+  productVariantId: string;
+  movementType: "RECEIPT" | "SALE" | "RETURN" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" | "DAMAGE" | "RESERVATION" | "RESERVATION_RELEASE";
+  quantity: number;
+  sourceType: "SHOP_ORDER" | "RETURN" | "ADJUSTMENT" | "DAMAGE" | "OTHER";
+  sourceId?: string;
+  performedByUserId?: string;
+  notes?: string;
+}
+
+export interface RestockSuggestionDto {
+  variantId: string;
+  productName: string;
+  variantName: string;
+  sku: string;
+  onHand: number;
+  reorderLevel: number;
+  suggestedReorderQuantity: number;
 }
 
 export const shopApi = {
   listProducts: (category?: string) =>
-    apiClient.get<ProductDto[]>("/api/public/products", category ? { category } : undefined),
+    apiClient.get<BackendProductResponse[]>("/api/public/products", category ? { category } : undefined),
 
   getProduct: (id: string) =>
-    apiClient.get<ProductDto>(`/api/shop/products/${id}`),
+    apiClient.get<BackendProductResponse>(`/api/shop/products/${id}`),
 
   listQuickSale: () =>
-    apiClient.get<ProductVariantDto[]>("/api/shop/quick-sale"),
+    apiClient.get<BackendVariantResponse[]>("/api/shop/quick-sale"),
 
-  posCheckout: (data: PosCheckoutRequest) =>
-    apiClient.post<PosCheckoutResponse>("/api/shop/pos/checkout", data),
-
-  cancelOrder: (id: string, reason: string) =>
-    apiClient.post<{ orderId: string; status: string }>(`/api/shop/orders/${id}/cancel`, { reason }),
+  getLowStock: () =>
+    apiClient.get<BackendVariantResponse[]>("/api/shop/inventory/low-stock"),
 
   getRestockSuggestions: () =>
-    apiClient.get<Record<string, unknown>[]>("/api/shop/inventory/restock-suggestions"),
+    apiClient.get<RestockSuggestionDto[]>("/api/shop/inventory/restock-suggestions"),
 
-  adjustInventory: (variantId: string, quantityDelta: number, reason: string) =>
-    apiClient.post<{ variantId: string; newStock: number }>("/api/shop/inventory/adjust", {
-      variantId,
-      quantityDelta,
-      reason,
-    }),
+  createOrder: (payload: CreateShopOrderPayload) =>
+    apiClient.post<BackendShopOrderResponse>("/api/shop/orders", payload),
+
+  posCheckout: (payload: PosCheckoutPayload) =>
+    apiClient.post<BackendShopOrderResponse>("/api/shop/pos/checkout", payload),
+
+  listOrders: (memberId?: string) =>
+    apiClient.get<BackendShopOrderResponse[]>("/api/shop/orders", memberId ? { memberId } : undefined),
+
+  getOrder: (id: string) =>
+    apiClient.get<BackendShopOrderResponse>(`/api/shop/orders/${id}`),
+
+  updateOrderStatus: (id: string, status: string, notes?: string) =>
+    apiClient.patch<BackendShopOrderResponse>(`/api/shop/orders/${id}/status`, { status, notes }),
+
+  cancelOrder: (id: string, reason?: string) =>
+    apiClient.post<BackendShopOrderResponse>(`/api/shop/orders/${id}/cancel`, { reason }),
+
+  recordStockMovement: (payload: StockMovementPayload) =>
+    apiClient.post<Record<string, unknown>>("/api/shop/inventory/movement", payload),
 };

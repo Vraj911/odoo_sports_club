@@ -15,6 +15,7 @@ import { cn } from "@/lib/cn";
 
 export default function ShopPOSPage() {
   const {
+    products,
     posAddToCart,
     lastReceipt,
     clearLastReceipt,
@@ -37,7 +38,7 @@ export default function ShopPOSPage() {
 
   // Filtered catalog
   const filteredProducts = useMemo(() => {
-    let prods = [...SAMPLE_PRODUCTS];
+    let prods = [...products];
 
     if (selectedCategory !== "all") {
       prods = prods.filter((p) => p.category === selectedCategory);
