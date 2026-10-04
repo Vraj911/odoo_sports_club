@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { LogOut, PanelLeft, Bell, ChevronRight, ShieldCheck, User as UserIcon } from "lucide-react";
+import { useState, useEffect, type ReactNode } from "react";
+import { LogOut, PanelLeft, Bell, ChevronRight, ShieldCheck, User as UserIcon, CheckCheck } from "lucide-react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { AppLink, useGo } from "@/app/router/links";
 import { hasParams, routeConfig } from "@/app/router/routeConfig";
@@ -10,6 +10,7 @@ import { CommandPalette } from "@/components/shared/CommandPalette";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { NAV_GROUPS, getVisibleNavGroups, canAccessRoute } from "@/lib/permissions";
 import { ROLE_LABELS, GROUP_LABELS, getRoleHome } from "@/lib/constants";
+import { notificationApi, type NotificationDto } from "@/services/api/notificationApi";
 import { cn } from "@/lib/cn";
 import type { RouteMeta } from "@/types/common";
 
@@ -18,6 +19,25 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
   const go = useGo();
   const [collapsed, setCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState<NotificationDto[]>([]);
+
+  const loadNotifs = async () => {
+    try {
+      const res = await notificationApi.listNotifications();
+      if (res && Array.isArray(res)) setNotifs(res);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadNotifs();
+    const interval = setInterval(loadNotifs, 12000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const unreadCount = notifs.filter((n) => !n.isRead).length;
 
   // Check if page is POS / Shop Console mode to expand full width
   const isPOS =
@@ -176,10 +196,85 @@ export function ConsoleLayout({ route, children }: { route: RouteMeta; children:
               </div>
             )}
 
-            <button className="relative p-2 text-chalk/80 hover:text-chalk" aria-label="Notifications">
-              <Bell className="size-5" />
-              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-volt-400" />
-            </button>
+            {/* Notifications Menu */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotifOpen((n) => !n);
+                  setUserMenuOpen(false);
+                }}
+                className="relative p-2 text-chalk/80 hover:text-chalk transition-colors rounded-lg hover:bg-chalk/10"
+                aria-label="Notifications"
+              >
+                <Bell className="size-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 flex size-2 rounded-full bg-volt-400 shadow-volt" />
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-chalk/18 bg-court-600 shadow-2xl z-50 overflow-hidden text-chalk">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-chalk/14 bg-court-700/50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-chalk">Staff & Operations Alerts</span>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-volt-400/20 px-2 py-0.5 text-[10px] font-bold text-volt-400">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={async () => {
+                          await notificationApi.markAllRead();
+                          loadNotifs();
+                        }}
+                        className="text-[11px] text-chalk/60 hover:text-volt-400 flex items-center gap-1 transition-colors"
+                      >
+                        <CheckCheck className="size-3.5" />
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-chalk/8">
+                    {notifs.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-chalk/50">
+                        No active operational alerts. Real notifications will appear here.
+                      </div>
+                    ) : (
+                      notifs.slice(0, 5).map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={async () => {
+                            await notificationApi.markRead(n.id);
+                            loadNotifs();
+                            setNotifOpen(false);
+                          }}
+                          className={cn(
+                            "p-3.5 flex items-start gap-3 hover:bg-white/5 cursor-pointer transition-colors text-left",
+                            !n.isRead ? "bg-court-500/40" : ""
+                          )}
+                        >
+                          <div className="size-2 rounded-full bg-volt-400 mt-1.5 shrink-0 opacity-0 data-[unread=true]:opacity-100" data-unread={!n.isRead} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="text-xs font-semibold text-chalk truncate">{n.title}</p>
+                              <span className="text-[10px] text-chalk/40 shrink-0 font-mono">
+                                {new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-chalk/70 mt-0.5 line-clamp-2 leading-relaxed">
+                              {n.message}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* User Avatar Menu */}
             <div className="relative">

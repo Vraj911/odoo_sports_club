@@ -14,7 +14,6 @@ import {
   SAMPLE_BAR_TAB_ITEMS,
   SAMPLE_ORDERS,
   SAMPLE_INVOICES,
-  SAMPLE_NOTIFICATIONS,
   computeRenewalEndDate,
   computePlanChangePreview,
 } from "./sampleData";
@@ -34,7 +33,7 @@ let state: MemberStoreState = {
   tabItems: [...SAMPLE_BAR_TAB_ITEMS],
   orders: [...SAMPLE_ORDERS],
   invoices: [...SAMPLE_INVOICES],
-  notifications: [...SAMPLE_NOTIFICATIONS],
+  notifications: [],
 };
 
 const listeners = new Set<() => void>();
@@ -56,6 +55,7 @@ function subscribe(listener: () => void) {
 
 import { memberApi } from "@/services/api/memberApi";
 import { financeApi } from "@/services/api/financeApi";
+import { notificationApi } from "@/services/api/notificationApi";
 
 export const memberStore = {
   getState: () => state,
@@ -107,8 +107,59 @@ export const memberStore = {
           memberStore.setProfileFromMemberDto(target, explicitTier);
         }
       }
+      await memberStore.loadNotifications();
     } catch (e) {
       console.warn("Could not sync memberStore with backend", e);
+    }
+  },
+
+  loadNotifications: async () => {
+    try {
+      const actorId = state.profile.id && !state.profile.id.startsWith("CC-000") ? state.profile.id : undefined;
+      const res = await notificationApi.listNotifications(actorId);
+      if (res && Array.isArray(res)) {
+        const mapped: ClubNotification[] = res.map((n) => {
+          let cat: NotificationCategory = "Bookings";
+          const typeUpper = (n.notificationType || "").toUpperCase();
+          if (typeUpper.includes("ORDER") || typeUpper.includes("SHOP")) cat = "Orders";
+          else if (typeUpper.includes("MEMBER") || typeUpper.includes("PLAN")) cat = "Membership";
+          else if (typeUpper.includes("PAY") || typeUpper.includes("BILL") || typeUpper.includes("INVOICE")) cat = "Payments";
+
+          let link = "/app/notifications";
+          if (n.entityType === "BOOKING") {
+            link = n.entityId ? `/app/bookings/${n.entityId}` : "/app/bookings";
+          } else if (n.entityType === "SHOP_ORDER") {
+            link = n.entityId ? `/app/orders/${n.entityId}` : "/app/orders";
+          } else if (n.entityType === "INVOICE") {
+            link = n.entityId ? `/app/invoices/${n.entityId}` : "/app/invoices";
+          } else if (cat === "Bookings") {
+            link = "/app/bookings";
+          } else if (cat === "Orders") {
+            link = "/app/orders";
+          } else if (cat === "Membership") {
+            link = "/app/membership";
+          } else if (cat === "Payments") {
+            link = "/app/invoices";
+          }
+
+          return {
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            category: cat,
+            read: n.isRead,
+            timestamp: n.createdAt ? new Date(n.createdAt).getTime() : Date.now(),
+            link,
+          };
+        });
+        state = {
+          ...state,
+          notifications: mapped,
+        };
+        notify();
+      }
+    } catch (e) {
+      console.warn("Could not load backend notifications", e);
     }
   },
 
@@ -167,25 +218,15 @@ export const memberStore = {
         daysRemaining: 365,
       },
       invoices: [newInvoice, ...state.invoices],
-      notifications: [
-        {
-          id: `NTF-${Date.now()}`,
-          title: "Membership Successfully Renewed",
-          message: `Your ${plan.name} membership is active until ${newEnd}. Thank you!`,
-          category: "Membership",
-          read: false,
-          timestamp: now,
-          link: "/app/membership",
-        },
-        ...state.notifications,
-      ],
     };
 
     notify();
 
-    // Sync renewal with backend API
+    // Sync renewal with backend API and reload real notifications
     if (state.profile.id) {
-      memberApi.renewMembership(state.profile.id).catch(() => {});
+      memberApi.renewMembership(state.profile.id)
+        .then(() => memberStore.loadNotifications())
+        .catch(() => {});
     }
 
     return { success: true, newValidTill: newEnd, invoiceId: newInvoiceId };
@@ -242,21 +283,12 @@ export const memberStore = {
         },
       },
       invoices: [newInvoice, ...state.invoices],
-      notifications: [
-        {
-          id: `NTF-${Date.now()}`,
-          title: `Upgraded to ${targetPlan.name}!`,
-          message: `Your new benefits are effective immediately. Pro-rated charge: ₹${preview.netPayable}.`,
-          category: "Membership",
-          read: false,
-          timestamp: now,
-          link: "/app/membership",
-        },
-        ...state.notifications,
-      ],
     };
 
     notify();
+    setTimeout(() => {
+      memberStore.loadNotifications();
+    }, 400);
   },
 
   updateProfile: (updates: Partial<MemberProfile>) => {
@@ -299,7 +331,7 @@ export const memberStore = {
     return true;
   },
 
-  markNotificationRead: (id: string) => {
+  markNotificationRead: async (id: string) => {
     state = {
       ...state,
       notifications: state.notifications.map((n) =>
@@ -307,14 +339,38 @@ export const memberStore = {
       ),
     };
     notify();
+    try {
+      await notificationApi.markRead(id);
+    } catch (e) {
+      console.warn("Failed to mark notification read in backend", e);
+    }
   },
 
-  markAllNotificationsRead: () => {
+  markAllNotificationsRead: async () => {
     state = {
       ...state,
       notifications: state.notifications.map((n) => ({ ...n, read: true })),
     };
     notify();
+    try {
+      const actorId = state.profile.id && !state.profile.id.startsWith("CC-000") ? state.profile.id : undefined;
+      await notificationApi.markAllRead(actorId);
+    } catch (e) {
+      console.warn("Failed to mark all notifications read in backend", e);
+    }
+  },
+
+  deleteNotification: async (id: string) => {
+    state = {
+      ...state,
+      notifications: state.notifications.filter((n) => n.id !== id),
+    };
+    notify();
+    try {
+      await notificationApi.deleteNotification(id);
+    } catch (e) {
+      console.warn("Failed to delete notification in backend", e);
+    }
   },
 
   payInvoice: (invoiceId: string) => {
@@ -338,20 +394,11 @@ export const memberStore = {
     state = {
       ...state,
       orders: [order, ...state.orders],
-      notifications: [
-        {
-          id: `NTF-${Date.now()}`,
-          title: `Order Confirmed: #${order.id}`,
-          message: `Your Pro Shop order of ₹${order.total.toLocaleString("en-IN")} has been placed successfully.`,
-          category: "Orders",
-          read: false,
-          timestamp: Date.now(),
-          link: `/app/orders/${order.id}`,
-        },
-        ...state.notifications,
-      ],
     };
     notify();
+    setTimeout(() => {
+      memberStore.loadNotifications();
+    }, 400);
   },
 };
 
@@ -401,6 +448,14 @@ export function useMember() {
     memberStore.addOrder(order);
   }, []);
 
+  const loadNotifications = useCallback(() => {
+    return memberStore.loadNotifications();
+  }, []);
+
+  const deleteNotification = useCallback((id: string) => {
+    memberStore.deleteNotification(id);
+  }, []);
+
   const unreadCount = store.notifications.filter((n) => !n.read).length;
 
   return {
@@ -414,7 +469,9 @@ export function useMember() {
     requestBill,
     markNotificationRead,
     markAllNotificationsRead,
+    deleteNotification,
     payInvoice,
     addOrder,
+    loadNotifications,
   };
 }

@@ -14,6 +14,7 @@ import { Money, formatINR } from "@/components/shared/Money";
 import { cn } from "@/lib/cn";
 import { useDisclosure } from "@/hooks/useDisclosure";
 import { useBookings, toDateStr } from "@/features/booking/useBookings";
+import { useMember } from "@/features/member/memberStore";
 import type { Sport, Booking, AlternativeSlot, MemberTier } from "@/features/booking/types";
 import { SPORT_LABELS, SPORT_ICONS } from "@/features/booking/types";
 import {
@@ -256,7 +257,8 @@ function RecurringStepper({
 
 // ── Main Page ──
 export default function BookCourtPage(_props: PageProps) {
-  const currentTier: MemberTier = "Gold";
+  const { profile } = useMember();
+  const currentTier: MemberTier = (profile.tier as MemberTier) || "Gold";
   const bookingState = useBookings(currentTier);
   const {
     sport,
@@ -305,13 +307,15 @@ export default function BookCourtPage(_props: PageProps) {
   );
 
   // ── Book now ──
-  const handleBook = useCallback(() => {
+  const handleBook = useCallback(async () => {
     if (!selectedSlot) return;
-    const result = createBooking(selectedSlot.courtId, selectedDate, selectedSlot.time);
+    const result = await createBooking(selectedSlot.courtId, selectedDate, selectedSlot.time);
 
     if (!result.success) {
       if (result.error === "SLOT_TAKEN" || result.error === "INVALID_COURT") {
-        const alts = getAlternatives(selectedSlot.courtId, selectedSlot.time);
+        const alts = result.alternatives && result.alternatives.length > 0
+          ? result.alternatives
+          : getAlternatives(selectedSlot.courtId, selectedSlot.time);
         setAlternatives(alts);
         slotTakenModal.open();
       }
@@ -320,11 +324,10 @@ export default function BookCourtPage(_props: PageProps) {
 
     setPendingBooking(result.booking!);
 
-    // Gold members: instant confirmation (₹0)
+    // Instant confirmation if free
     if (result.booking!.price === 0) {
-      confirmBooking(result.booking!.id);
+      await confirmBooking(result.booking!.id);
       setSelectedSlot(null);
-      // Could show a toast here
       return;
     }
 

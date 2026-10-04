@@ -58,18 +58,18 @@ export async function apiFetch<T>(config: AxiosRequestConfig): Promise<T> {
 }
 
 export const apiClient = {
-  get: <T>(url: string, params?: Record<string, unknown>) =>
-    apiFetch<T>({ method: "GET", url, params }),
+  get: <T>(url: string, params?: Record<string, unknown>, config?: Partial<AxiosRequestConfig>) =>
+    apiFetch<T>({ method: "GET", url, params, ...config }),
 
-  post: <T>(url: string, data?: unknown) =>
-    apiFetch<T>({ method: "POST", url, data }),
+  post: <T>(url: string, data?: unknown, config?: Partial<AxiosRequestConfig>) =>
+    apiFetch<T>({ method: "POST", url, data, ...config }),
 
-  put: <T>(url: string, data?: unknown) =>
-    apiFetch<T>({ method: "PUT", url, data }),
+  put: <T>(url: string, data?: unknown, config?: Partial<AxiosRequestConfig>) =>
+    apiFetch<T>({ method: "PUT", url, data, ...config }),
 
-  patch: <T>(url: string, data?: unknown) =>
-    apiFetch<T>({ method: "PATCH", url, data }),
+  patch: <T>(url: string, data?: unknown, config?: Partial<AxiosRequestConfig>) =>
+    apiFetch<T>({ method: "PATCH", url, data, ...config }),
 
-  delete: <T>(url: string) =>
-    apiFetch<T>({ method: "DELETE", url }),
+  delete: <T>(url: string, config?: Partial<AxiosRequestConfig>) =>
+    apiFetch<T>({ method: "DELETE", url, ...config }),
 };

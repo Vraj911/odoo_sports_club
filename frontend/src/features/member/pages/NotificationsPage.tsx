@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Bell,
   CheckCheck,
@@ -7,11 +7,12 @@ import {
   BadgeCheck,
   CreditCard,
   ChevronRight,
-  Filter,
+  Trash2,
+  RotateCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { AppLink } from "@/app/router/links";
+import { AppLink, useGo } from "@/app/router/links";
 import { useMember } from "@/features/member/memberStore";
 import type { NotificationCategory, ClubNotification } from "@/features/member/types";
 import { cn } from "@/lib/cn";
@@ -25,8 +26,27 @@ const CATEGORIES: ("All" | NotificationCategory)[] = [
 ];
 
 export default function NotificationsPage() {
-  const { notifications, markNotificationRead, markAllNotificationsRead, unreadCount } = useMember();
+  const {
+    notifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    deleteNotification,
+    unreadCount,
+    loadNotifications,
+  } = useMember();
   const [selectedCategory, setSelectedCategory] = useState<"All" | NotificationCategory>("All");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const go = useGo();
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadNotifications();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   // Filter notifications by category
   const filtered = useMemo(() => {
@@ -74,13 +94,26 @@ export default function NotificationsPage() {
     }
   };
 
+  const formatTimestamp = (ts: number) => {
+    const diffMs = Date.now() - ts;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return new Date(ts).toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
   return (
     <div className="space-y-8 max-w-4xl">
       {/* Header */}
       <div className="border-b border-chalk/10 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <Bell className="size-6 text-volt-400" />
+            <div className="flex size-10 items-center justify-center rounded-2xl bg-volt-400/10 border border-volt-400/20 text-volt-400">
+              <Bell className="size-5" />
+            </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-chalk">
               Notifications & Alerts
             </h1>
@@ -91,21 +124,33 @@ export default function NotificationsPage() {
             )}
           </div>
           <p className="text-xs sm:text-sm text-chalk/70 mt-1">
-            Real-time updates regarding court holds, social spots, bar tabs, and invoices.
+            Real-time notifications for court reservations, tournament schedules, invoices, and club privileges.
           </p>
         </div>
 
-        {unreadCount > 0 && (
+        <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
-            onClick={markAllNotificationsRead}
-            leftIcon={<CheckCheck className="size-4 text-volt-400" />}
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            leftIcon={<RotateCw className={cn("size-3.5 text-chalk/70", isRefreshing && "animate-spin")} />}
             className="text-xs"
           >
-            Mark All as Read
+            Refresh
           </Button>
-        )}
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={markAllNotificationsRead}
+              leftIcon={<CheckCheck className="size-4 text-volt-400" />}
+              className="text-xs"
+            >
+              Mark All Read
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter Chips */}
@@ -137,8 +182,14 @@ export default function NotificationsPage() {
       {/* Grouped Notifications List */}
       <div className="space-y-6">
         {grouped.length === 0 ? (
-          <div className="text-center py-12 rounded-3xl border border-chalk/10 bg-court-500/40 text-chalk/60 text-xs">
-            No notifications in this category.
+          <div className="flex flex-col items-center justify-center text-center py-16 rounded-3xl border border-chalk/10 bg-court-500/40 p-8 space-y-3">
+            <div className="flex size-14 items-center justify-center rounded-full bg-chalk/5 border border-chalk/10 text-chalk/40">
+              <Bell className="size-6" />
+            </div>
+            <h3 className="text-sm font-semibold text-chalk">No notifications in this view</h3>
+            <p className="text-xs text-chalk/60 max-w-sm">
+              You are all caught up! New updates will appear here in real-time when court bookings, invoices, or club events are processed.
+            </p>
           </div>
         ) : (
           grouped.map((group) => (
@@ -151,18 +202,26 @@ export default function NotificationsPage() {
                 {group.items.map((n) => (
                   <div
                     key={n.id}
-                    onClick={() => markNotificationRead(n.id)}
                     className={cn(
-                      "p-4 sm:p-5 flex items-start gap-4 transition-colors cursor-pointer",
+                      "group p-4 sm:p-5 flex items-start gap-4 transition-colors",
                       !n.read ? "bg-court-600/70" : "hover:bg-white/4"
                     )}
                   >
-                    {/* Unread indicator or Category icon */}
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-court-700 border border-chalk/10 shrink-0 mt-0.5">
+                    {/* Category Icon */}
+                    <div
+                      onClick={() => markNotificationRead(n.id)}
+                      className="flex size-10 items-center justify-center rounded-xl bg-court-700 border border-chalk/10 shrink-0 mt-0.5 cursor-pointer"
+                    >
                       {getCategoryIcon(n.category)}
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        if (n.link) go(n.link);
+                      }}
+                      className="flex-1 min-w-0 cursor-pointer"
+                    >
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold text-chalk text-sm">{n.title}</h4>
                         {!n.read && (
@@ -171,18 +230,33 @@ export default function NotificationsPage() {
                       </div>
                       <p className="text-xs text-chalk/70 mt-1 leading-relaxed">{n.message}</p>
                       <span className="text-[10px] text-chalk/40 font-mono block mt-1.5">
-                        {new Date(n.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {n.category}
+                        {formatTimestamp(n.timestamp)} · {n.category}
                       </span>
                     </div>
 
-                    {n.link && (
-                      <AppLink
-                        to={n.link}
-                        className="text-chalk/40 hover:text-volt-400 self-center p-1"
+                    <div className="flex items-center gap-1 self-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(n.id);
+                        }}
+                        title="Delete notification"
+                        className="opacity-0 group-hover:opacity-100 p-2 text-chalk/40 hover:text-danger rounded-lg transition-all"
                       >
-                        <ChevronRight className="size-5" />
-                      </AppLink>
-                    )}
+                        <Trash2 className="size-4" />
+                      </button>
+
+                      {n.link && (
+                        <AppLink
+                          to={n.link}
+                          onClick={() => markNotificationRead(n.id)}
+                          className="text-chalk/40 hover:text-volt-400 p-2 rounded-lg transition-colors"
+                          title="Open details"
+                        >
+                          <ChevronRight className="size-5" />
+                        </AppLink>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
