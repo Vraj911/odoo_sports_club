@@ -54,7 +54,7 @@ public class BarOrder extends BaseEntity {
     private BarTab tab;
 
     /** OPEN, SENT, PARTIALLY_PAID, PAID, ON_ACCOUNT, VOID, CANCELLED */
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private String status = "OPEN";
 
     /** BR-09: discount rule snapshot. */

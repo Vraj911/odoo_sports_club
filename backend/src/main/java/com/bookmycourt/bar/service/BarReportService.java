@@ -13,8 +13,8 @@ import com.bookmycourt.bar.repository.BarOrderRepository;
 import com.bookmycourt.bar.repository.BarPaymentRepository;
 import com.bookmycourt.bar.repository.CashShiftRepository;
 import com.bookmycourt.membership.repository.AppUserRepository;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

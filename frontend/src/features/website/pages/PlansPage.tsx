@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useGo } from "@/app/router/links";
-import { PublicNavbar } from "@/components/layout/PublicNavbar";
 import { CourtLines } from "@/components/brand/CourtLines";
 import { NoiseOverlay } from "@/components/brand/NoiseOverlay";
 import { Button } from "@/components/ui/Button";
@@ -28,9 +27,7 @@ export function PlansPage() {
   };
 
   return (
-    <div className="min-h-screen bg-backdrop text-chalk font-sans">
-      <PublicNavbar />
-
+    <div className="w-full text-chalk font-sans">
       {/* Header */}
       <div className="relative overflow-hidden border-b border-chalk/14 bg-court-700/60 py-16 px-4 sm:px-6">
         <NoiseOverlay opacity={0.03} />

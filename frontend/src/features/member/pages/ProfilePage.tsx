@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Mail,
@@ -38,11 +38,23 @@ export default function ProfilePage() {
     name: profile.name,
     email: profile.email,
     phone: profile.phone,
-    address: profile.address,
-    emergencyName: profile.emergencyContact.name,
-    emergencyPhone: profile.emergencyContact.phone,
-    emergencyRel: profile.emergencyContact.relationship,
+    address: profile.address || "",
+    emergencyName: profile.emergencyContact?.name || "",
+    emergencyPhone: profile.emergencyContact?.phone || "",
+    emergencyRel: profile.emergencyContact?.relationship || "",
   });
+
+  useEffect(() => {
+    setFormData({
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      address: profile.address || "",
+      emergencyName: profile.emergencyContact?.name || "",
+      emergencyPhone: profile.emergencyContact?.phone || "",
+      emergencyRel: profile.emergencyContact?.relationship || "",
+    });
+  }, [profile.name, profile.email, profile.phone, profile.address]);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);

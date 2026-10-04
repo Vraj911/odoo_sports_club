@@ -2,11 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { AUTH_STORAGE_KEY, ROLE_LABELS } from "@/lib/constants";
 import type { AuthUser, PermissionGroup, PrimaryRole } from "@/types/common";
 
+import { memberStore } from "@/features/member/memberStore";
+
 interface AuthContextValue {
   user: AuthUser | null;
   /** False until sessionStorage has been read on the client. */
   ready: boolean;
-  loginAs: (role: PrimaryRole, groups?: PermissionGroup[], name?: string, id?: string) => void;
+  loginAs: (role: PrimaryRole, groups?: PermissionGroup[], name?: string, id?: string, email?: string) => void;
   logout: () => void;
 }
 
@@ -25,6 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Migration: ensure groups array exists (old sessions may lack it)
         if (!Array.isArray(parsed.groups)) parsed.groups = [];
         setUser(parsed);
+        if (parsed.role === "MEMBER") {
+          memberStore.init(parsed.email);
+        }
       }
     } catch {
       /* ignore */
@@ -32,16 +37,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
-  const loginAs = useCallback((role: PrimaryRole, groups: PermissionGroup[] = [], name?: string, id?: string) => {
-    const next: AuthUser = { id, name: name || `Demo ${ROLE_LABELS[role]}`, role, groups };
-    sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
-    setUser(next);
-  }, []);
+  const loginAs = useCallback(
+    (role: PrimaryRole, groups: PermissionGroup[] = [], name?: string, id?: string, email?: string) => {
+      const next: AuthUser = { id, name: name || `Demo ${ROLE_LABELS[role]}`, role, groups, email };
+      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+      setUser(next);
+      if (role === "MEMBER") {
+        memberStore.init(email);
+      }
+    },
+    []
+  );
 
   const logout = useCallback(() => {
     sessionStorage.removeItem(AUTH_STORAGE_KEY);
     setUser(null);
   }, []);
+
 
   const value = useMemo(() => ({ user, ready, loginAs, logout }), [user, ready, loginAs, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

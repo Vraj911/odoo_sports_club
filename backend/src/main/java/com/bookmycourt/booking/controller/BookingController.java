@@ -116,8 +116,11 @@ public class BookingController {
     }
 
     @GetMapping("/bookings")
-    public ApiResponse<List<BookingResponse>> list(@RequestParam UUID memberId) {
-        return ApiResponse.success("Bookings loaded", bookings.listForMember(memberId));
+    public ApiResponse<List<BookingResponse>> list(
+            @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) UUID courtId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ApiResponse.success("Bookings loaded", bookings.listBookings(memberId, courtId, date));
     }
 
     // POST is what the SRS lists; PATCH is kept so existing clients keep working.

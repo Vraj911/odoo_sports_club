@@ -41,12 +41,21 @@ class BarServiceTest {
         MembershipRepository memberships = Mockito.mock(MembershipRepository.class);
         AppUserRepository users = Mockito.mock(AppUserRepository.class);
         CashShiftRepository cashShifts = Mockito.mock(CashShiftRepository.class);
-        PaymentRepository payments = Mockito.mock(PaymentRepository.class);
-        BarMapper mapper = new BarMapper();
+        com.bookmycourt.bar.repository.BarPaymentRepository barPayments = Mockito.mock(com.bookmycourt.bar.repository.BarPaymentRepository.class);
+        com.bookmycourt.bar.repository.BarTabRepository tabs = Mockito.mock(com.bookmycourt.bar.repository.BarTabRepository.class);
+        BarPricingService pricing = Mockito.mock(BarPricingService.class);
+        BarDayLock dayLock = Mockito.mock(BarDayLock.class);
+        BarTableSupport tableSupport = Mockito.mock(BarTableSupport.class);
+        BarTabService tabService = Mockito.mock(BarTabService.class);
+        com.bookmycourt.admin.service.AuditService audit = Mockito.mock(com.bookmycourt.admin.service.AuditService.class);
+        org.springframework.context.ApplicationEventPublisher events = Mockito.mock(org.springframework.context.ApplicationEventPublisher.class);
+        java.time.Clock clock = java.time.Clock.systemDefaultZone();
+        BarMapper mapper = new BarMapper(clock);
 
         service = new BarService(
-                menuItems, tables, orders, lines, members,
-                memberships, users, mapper, cashShifts, payments
+                menuItems, tables, orders, lines, barPayments, tabs,
+                cashShifts, members, memberships, users, mapper,
+                pricing, dayLock, tableSupport, tabService, audit, events, clock
         );
     }
 

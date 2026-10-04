@@ -67,6 +67,42 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             """)
     List<Booking> findDetailedByMember(@Param("memberId") UUID memberId);
 
+    @Query("""
+            SELECT DISTINCT b FROM Booking b
+            JOIN FETCH b.court
+            LEFT JOIN FETCH b.member
+            WHERE b.court.id = :courtId AND b.bookingDay = :day
+            ORDER BY b.startTime ASC
+            """)
+    List<Booking> findDetailedByCourtAndDay(@Param("courtId") UUID courtId, @Param("day") LocalDate day);
+
+    @Query("""
+            SELECT DISTINCT b FROM Booking b
+            JOIN FETCH b.court
+            LEFT JOIN FETCH b.member
+            WHERE b.bookingDay = :day
+            ORDER BY b.startTime ASC
+            """)
+    List<Booking> findDetailedByDay(@Param("day") LocalDate day);
+
+    @Query("""
+            SELECT DISTINCT b FROM Booking b
+            JOIN FETCH b.court
+            LEFT JOIN FETCH b.member
+            WHERE b.court.id = :courtId
+            ORDER BY b.startTime ASC
+            """)
+    List<Booking> findDetailedByCourt(@Param("courtId") UUID courtId);
+
+    @Query("""
+            SELECT DISTINCT b FROM Booking b
+            JOIN FETCH b.court
+            LEFT JOIN FETCH b.member
+            ORDER BY b.startTime DESC
+            """)
+    List<Booking> findAllDetailed();
+
+
     List<Booking> findByExpiresAtLessThanEqualAndStatus(OffsetDateTime now, String status);
 
     List<Booking> findByCourt_IdAndStatusAndExpiresAtBefore(UUID courtId, String status, OffsetDateTime before);

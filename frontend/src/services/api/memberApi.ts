@@ -12,12 +12,17 @@ export interface PlanDto {
 
 export interface MemberDto {
   id: string;
-  memberNumber: string;
-  fullName: string;
+  memberNumber?: string;
+  memberCode?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
   email: string;
   phone: string;
-  tier: "Gold" | "Silver" | "Junior" | "Guest";
-  status: "ACTIVE" | "EXPIRED" | "FROZEN" | "SUSPENDED";
+  tier?: "Gold" | "Silver" | "Junior" | "Guest";
+  status?: "ACTIVE" | "EXPIRED" | "FROZEN" | "SUSPENDED";
+  role?: string;
+  planName?: string;
   joinedDate?: string;
   validUntil?: string;
   activeMembership?: {
@@ -30,9 +35,13 @@ export interface MemberDto {
 }
 
 export interface RegisterMemberRequest {
-  fullName: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   phone: string;
+  password?: string;
+  tier?: string;
   dateOfBirth?: string;
   emergencyContact?: string;
   emergencyPhone?: string;
@@ -57,8 +66,11 @@ export const memberApi = {
   getMember: (id: string) =>
     apiClient.get<MemberDto>(`/api/members/${id}`),
 
+  login: (data: { login: string; password?: string }) =>
+    apiClient.post<MemberDto>("/api/auth/login", data),
+
   registerMember: (data: RegisterMemberRequest) =>
-    apiClient.post<MemberDto>("/api/members", data),
+    apiClient.post<MemberDto>("/api/auth/register", data),
 
   issueMembership: (data: IssueMembershipRequest) =>
     apiClient.post<{ membershipId: string; invoiceId: string; status: string }>(
@@ -81,3 +93,4 @@ export const memberApi = {
       { months }
     ),
 };
+

@@ -53,10 +53,19 @@ class HrServiceTest {
         PayslipRepository payslips = Mockito.mock(PayslipRepository.class);
         HrMapper mapper = new HrMapper();
 
+        HrAccess access = Mockito.mock(HrAccess.class);
+        com.bookmycourt.admin.service.ClubCalendarService calendar = Mockito.mock(com.bookmycourt.admin.service.ClubCalendarService.class);
+        com.bookmycourt.admin.repository.ClubSettingRepository settings = Mockito.mock(com.bookmycourt.admin.repository.ClubSettingRepository.class);
+        com.bookmycourt.finance.repository.ExpenseRepository expenses = Mockito.mock(com.bookmycourt.finance.repository.ExpenseRepository.class);
+        com.bookmycourt.common.sequence.NumberSeriesService numberSeries = Mockito.mock(com.bookmycourt.common.sequence.NumberSeriesService.class);
+        com.bookmycourt.finance.service.LedgerService ledger = Mockito.mock(com.bookmycourt.finance.service.LedgerService.class);
+        org.springframework.jdbc.core.simple.JdbcClient jdbc = Mockito.mock(org.springframework.jdbc.core.simple.JdbcClient.class);
+        tools.jackson.databind.ObjectMapper json = Mockito.mock(tools.jackson.databind.ObjectMapper.class);
+
         service = new HrService(
                 employees, attendances, users, mapper,
                 leaveTypes, leaveRequests, shifts, payrollRuns, payslips,
-                FIXED_CLOCK
+                access, calendar, settings, expenses, numberSeries, ledger, jdbc, json, FIXED_CLOCK
         );
     }
 
@@ -92,7 +101,7 @@ class HrServiceTest {
         Employee e2 = new Employee();
         when(employees.findByEmploymentStatus("ACTIVE")).thenReturn(List.of(e1, e2));
 
-        PayrollRunResponse resp = service.generatePayrollRun(month);
+        PayrollRunResponse resp = service.generatePayrollRun(month, true);
         assertNotNull(resp);
         assertEquals(month, resp.month());
         assertEquals("FINALISED", resp.status());

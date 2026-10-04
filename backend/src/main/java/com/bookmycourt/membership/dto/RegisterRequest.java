@@ -1,16 +1,14 @@
 package com.bookmycourt.membership.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-
 import java.time.LocalDate;
 
 public record RegisterRequest(
-        @NotBlank String firstName,
-        @NotBlank String lastName,
+        String firstName,
+        String lastName,
+        String fullName,
         String email,
         String phone,
-        @NotBlank String password,
+        String password,
         LocalDate dateOfBirth,
         String guardianName,
         String guardianPhone,

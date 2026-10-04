@@ -1,27 +1,9 @@
-import { useState } from "react";
-import { IdCard, Download, Smartphone, QrCode, Sparkles, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { useToast } from "@/components/ui/Toast";
+import { IdCard, QrCode } from "lucide-react";
 import { DigitalCard } from "@/features/member/components/DigitalCard";
 import { useMember } from "@/features/member/memberStore";
 
 export default function DigitalCardPage() {
   const { profile } = useMember();
-  const toast = useToast();
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownloadPNG = () => {
-    setDownloading(true);
-    setTimeout(() => {
-      setDownloading(false);
-      toast.success("Card Exported", `Saved ${profile.id}-pass.png for offline desk check-in.`);
-    }, 600);
-  };
-
-  const handleAddToAppleWallet = () => {
-    toast.info("Wallet Pass", "Apple Wallet / Google Wallet pass file downloaded (.pkpass).");
-  };
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -46,46 +28,6 @@ export default function DigitalCardPage() {
           <QrCode className="size-3.5 text-volt-400" />
           <span>Tap the QR code on the card above for turnstile brightness boost</span>
         </p>
-      </div>
-
-      {/* Quick Actions & Wallet Integration */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-chalk/14 bg-court-500 p-5 space-y-3">
-          <div className="flex items-center gap-2 font-semibold text-chalk text-sm">
-            <Download className="size-4 text-volt-400" />
-            <span>Save Offline Image</span>
-          </div>
-          <p className="text-xs text-chalk/60 leading-relaxed">
-            Download a high-resolution PNG image of your card with embedded QR code to store in your photo gallery.
-          </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleDownloadPNG}
-            loading={downloading}
-            className="w-full"
-          >
-            Download PNG Pass
-          </Button>
-        </div>
-
-        <div className="rounded-2xl border border-chalk/14 bg-court-500 p-5 space-y-3">
-          <div className="flex items-center gap-2 font-semibold text-chalk text-sm">
-            <Smartphone className="size-4 text-volt-400" />
-            <span>Add to Digital Wallet</span>
-          </div>
-          <p className="text-xs text-chalk/60 leading-relaxed">
-            Sync pass with Apple Wallet or Google Wallet for lockscreen NFC check-in at club turnstiles.
-          </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleAddToAppleWallet}
-            className="w-full"
-          >
-            Add to Phone Wallet
-          </Button>
-        </div>
       </div>
 
       {/* Instructions & Features */}

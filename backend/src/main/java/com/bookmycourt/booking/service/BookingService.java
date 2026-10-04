@@ -855,6 +855,31 @@ public class BookingService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<BookingResponse> listBookings(UUID memberId, UUID courtId, LocalDate date) {
+        if (memberId != null) {
+            return listForMember(memberId);
+        }
+        if (courtId != null && date != null) {
+            return bookings.findDetailedByCourtAndDay(courtId, date).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+        if (date != null) {
+            return bookings.findDetailedByDay(date).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+        if (courtId != null) {
+            return bookings.findDetailedByCourt(courtId).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+        return bookings.findAllDetailed().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     // =====================================================================
     // Internals
     // =====================================================================

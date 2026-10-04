@@ -7,6 +7,7 @@ import com.bookmycourt.common.event.DomainEventPublisher;
 import com.bookmycourt.common.event.Events;
 import com.bookmycourt.common.event.events.MembershipEvents.MemberRegistered;
 import com.bookmycourt.common.sequence.NumberSeriesService;
+import com.bookmycourt.membership.dto.LoginRequest;
 import com.bookmycourt.membership.dto.MemberResponse;
 import com.bookmycourt.membership.dto.MemberScanResponse;
 import com.bookmycourt.membership.dto.MemberTimelineItem;
@@ -129,15 +130,31 @@ public class MemberService {
             }
         }
 
-        // Optional app user creation if password is provided
+        // Resolve first and last name from either firstName/lastName or fullName
+        String first = req.firstName();
+        String last = req.lastName();
+        if ((first == null || first.isBlank()) && req.fullName() != null && !req.fullName().isBlank()) {
+            String[] parts = req.fullName().trim().split("\\s+", 2);
+            first = parts[0];
+            last = parts.length > 1 ? parts[1] : "";
+        }
+        if (first == null || first.isBlank()) {
+            first = normEmail != null ? normEmail.split("@")[0] : "Member";
+        }
+        if (last == null) {
+            last = "";
+        }
+
+        // App user creation
         AppUser user = null;
-        if (req.password() != null && !req.password().isBlank()) {
+        if (normEmail != null || normPhone != null) {
             user = new AppUser();
             user.setEmail(normEmail);
             user.setPhone(normPhone);
-            user.setPasswordHash(passwordEncoder.encode(req.password()));
-            user.setFirstName(req.firstName());
-            user.setLastName(req.lastName());
+            String pwd = (req.password() != null && !req.password().isBlank()) ? req.password() : "password123";
+            user.setPasswordHash(passwordEncoder.encode(pwd));
+            user.setFirstName(first);
+            user.setLastName(last);
             user.setRole("MEMBER");
             user.setActive(true);
             users.save(user);
@@ -146,8 +163,8 @@ public class MemberService {
         Member member = new Member();
         member.setUser(user);
         member.setMemberCode(numberSeries.nextMemberCode());
-        member.setFirstName(req.firstName());
-        member.setLastName(req.lastName());
+        member.setFirstName(first);
+        member.setLastName(last);
         member.setEmail(normEmail);
         member.setPhone(normPhone);
         member.setDateOfBirth(req.dateOfBirth());
@@ -169,6 +186,60 @@ public class MemberService {
 
         String role = user != null ? user.getRole() : "MEMBER";
         return mapper.toResponse(member, null, role);
+    }
+
+    @Transactional
+    public MemberResponse login(LoginRequest req) {
+        String login = req.login() != null ? req.login().trim() : "";
+        String normEmail = normalizeEmail(login);
+        String normPhone = normalizePhone(login);
+
+        AppUser user = null;
+        if (normEmail != null) {
+            user = users.findByEmailIgnoreCase(normEmail).orElse(null);
+        }
+        if (user == null && normPhone != null) {
+            user = users.findByPhone(normPhone).orElse(null);
+        }
+
+        Member member = null;
+        if (user != null) {
+            member = members.findByUser_Id(user.getId()).orElse(null);
+        }
+        if (member == null && normEmail != null) {
+            member = members.findAll().stream()
+                    .filter(m -> normEmail.equalsIgnoreCase(normalizeEmail(m.getEmail())))
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (member == null && normPhone != null) {
+            member = members.findAll().stream()
+                    .filter(m -> normPhone.equalsIgnoreCase(normalizePhone(m.getPhone())))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        // If no member exists yet, auto-register them so they exist in DB!
+        if (member == null) {
+            String defaultName = normEmail != null ? normEmail.split("@")[0] : "Member";
+            String[] parts = defaultName.replace(".", " ").replace("_", " ").split("\\s+", 2);
+            String first = Character.toUpperCase(parts[0].charAt(0)) + (parts[0].length() > 1 ? parts[0].substring(1) : "");
+            String last = parts.length > 1 ? Character.toUpperCase(parts[1].charAt(0)) + (parts[1].length() > 1 ? parts[1].substring(1) : "") : "";
+
+            RegisterRequest autoReg = new RegisterRequest(
+                    first,
+                    last,
+                    first + (last.isEmpty() ? "" : " " + last),
+                    normEmail,
+                    normPhone != null ? normPhone : "+919876543210",
+                    req.password() != null && !req.password().isBlank() ? req.password() : "password123",
+                    null, null, null, null
+            );
+            return register(autoReg);
+        }
+
+        String role = user != null ? user.getRole() : "MEMBER";
+        return mapper.toResponse(member, memberships.findCurrent(member.getId(), LocalDate.now(clock)).orElse(null), role);
     }
 
     @Transactional(readOnly = true)

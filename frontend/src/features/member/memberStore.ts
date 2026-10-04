@@ -57,39 +57,58 @@ function subscribe(listener: () => void) {
 import { memberApi } from "@/services/api/memberApi";
 import { financeApi } from "@/services/api/financeApi";
 
-let isMemberStoreInitialized = false;
-
 export const memberStore = {
   getState: () => state,
 
-  init: async () => {
-    if (isMemberStoreInitialized) return;
+  setProfileFromMemberDto: (member: MemberDto | Partial<MemberDto>) => {
+    const resolvedName =
+      member.fullName ||
+      [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+      state.profile.name;
+    const resolvedCode = member.memberNumber || member.memberCode || state.profile.memberId;
+    const resolvedTier = (member.tier ||
+      (member.planName?.toLowerCase().includes("silver")
+        ? "Silver"
+        : member.planName?.toLowerCase().includes("junior")
+        ? "Junior"
+        : "Gold")) as MemberProfile["tier"];
+
+    state = {
+      ...state,
+      profile: {
+        ...state.profile,
+        ...(member.id ? { id: member.id } : {}),
+        name: resolvedName,
+        email: member.email || state.profile.email,
+        phone: member.phone || state.profile.phone,
+        tier: resolvedTier || state.profile.tier,
+        status: (member.status as MemberProfile["status"]) || "ACTIVE",
+        memberId: resolvedCode,
+      },
+    };
+    notify();
+  },
+
+  init: async (authenticatedEmail?: string) => {
     try {
       const members = await memberApi.listMembers();
       if (members && members.length > 0) {
-        const primary = members[0];
-        if (primary) {
-          state = {
-            ...state,
-            profile: {
-              ...state.profile,
-              id: primary.id,
-              name: primary.fullName,
-              email: primary.email,
-              phone: primary.phone,
-              tier: (primary.tier as MemberProfile["tier"]) || "Gold",
-              status: (primary.status as MemberProfile["status"]) || "ACTIVE",
-              memberId: primary.memberNumber || state.profile.memberId,
-            },
-          };
-          notify();
+        let target = members[0];
+        if (authenticatedEmail) {
+          const found = members.find(
+            (m) => m.email && m.email.toLowerCase() === authenticatedEmail.toLowerCase()
+          );
+          if (found) target = found;
+        }
+        if (target) {
+          memberStore.setProfileFromMemberDto(target);
         }
       }
-      isMemberStoreInitialized = true;
-    } catch {
-      isMemberStoreInitialized = true;
+    } catch (e) {
+      console.warn("Could not sync memberStore with backend", e);
     }
   },
+
 
   switchMember: (key: string) => {
     const target = SAMPLE_MEMBERS[key];

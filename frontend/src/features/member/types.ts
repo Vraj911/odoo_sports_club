@@ -33,6 +33,7 @@ export interface NotificationPreference {
 
 export interface MemberProfile {
   id: string; // e.g. "CC-000123"
+  memberId?: string;
   name: string;
   email: string;
   phone: string;

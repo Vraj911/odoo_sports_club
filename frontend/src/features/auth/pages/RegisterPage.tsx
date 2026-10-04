@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Eye, EyeOff, Lock, Mail, Phone, User, BadgeCheck } from "lucide-react";
 import type { PageProps } from "@/types/common";
+import { memberApi } from "@/services/api/memberApi";
+import { memberStore } from "@/features/member/memberStore";
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -56,25 +58,51 @@ export default function RegisterPage({}: PageProps) {
 
   const onSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
+    const parts = values.fullName.trim().split(/\s+/);
+    const firstName = parts[0] || values.fullName.trim();
+    const lastName = parts.slice(1).join(" ");
+
     try {
-      const { memberApi } = await import("@/services/api/memberApi");
       const res = await memberApi.registerMember({
+        firstName,
+        lastName,
         fullName: values.fullName.trim(),
         email: values.email.trim(),
         phone: values.phone.trim(),
+        password: values.password,
+        tier: values.tier,
         notes: `Registered via portal, Plan: ${values.tier}`,
       });
       setIsLoading(false);
-      loginAs("MEMBER", [], res?.fullName || values.fullName, res?.id);
-      toast.success("Account created successfully!", `Welcome to Champions Club, ${values.fullName}`);
+      const memberName = res?.fullName || values.fullName.trim();
+      loginAs("MEMBER", [], memberName, res?.id, values.email.trim());
+      if (res) {
+        memberStore.setProfileFromMemberDto(res);
+      } else {
+        memberStore.setProfileFromMemberDto({
+          fullName: memberName,
+          email: values.email.trim(),
+          phone: values.phone.trim(),
+          tier: values.tier as any,
+        });
+      }
+      toast.success("Account created successfully!", `Welcome to Champions Club, ${memberName}`);
       go("/app");
-    } catch {
+    } catch (err) {
+      console.warn("Backend registration error, fallback to demo login", err);
       setIsLoading(false);
-      loginAs("MEMBER", [], values.fullName);
+      loginAs("MEMBER", [], values.fullName, undefined, values.email.trim());
+      memberStore.setProfileFromMemberDto({
+        fullName: values.fullName.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        tier: values.tier as any,
+      });
       toast.success("Account created successfully!", `Welcome to Champions Club, ${values.fullName}`);
       go("/app");
     }
   };
+
 
   return (
     <div className="flex flex-col gap-4">

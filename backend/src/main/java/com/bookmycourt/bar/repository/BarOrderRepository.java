@@ -38,4 +38,7 @@ public interface BarOrderRepository extends JpaRepository<BarOrder, UUID> {
     List<BarOrder> findByTab_IdOrderByCreatedAtAsc(UUID tabId);
 
     List<BarOrder> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(Instant from, Instant to);
+
+    @Query("SELECT COALESCE(SUM(b.total), 0) FROM BarOrder b WHERE b.status = 'PAID' AND b.createdAt >= :from AND b.createdAt < :to")
+    java.math.BigDecimal sumPaidBetween(@Param("from") Instant from, @Param("to") Instant to);
 }

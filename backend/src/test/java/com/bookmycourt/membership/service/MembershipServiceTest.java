@@ -51,10 +51,13 @@ class MembershipServiceTest {
         auditService = Mockito.mock(AuditService.class);
         eventPublisher = Mockito.mock(DomainEventPublisher.class);
         MemberMapper mapper = new MemberMapper();
+        com.bookmycourt.admin.repository.ClubSettingRepository settings = Mockito.mock(com.bookmycourt.admin.repository.ClubSettingRepository.class);
+        com.bookmycourt.finance.service.FinanceService finance = Mockito.mock(com.bookmycourt.finance.service.FinanceService.class);
+        org.springframework.jdbc.core.simple.JdbcClient jdbc = Mockito.mock(org.springframework.jdbc.core.simple.JdbcClient.class);
 
         service = new MembershipService(
                 members, memberships, plans, mapper,
-                auditService, eventPublisher, FIXED_CLOCK
+                auditService, eventPublisher, settings, finance, jdbc, FIXED_CLOCK
         );
     }
 

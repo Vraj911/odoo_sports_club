@@ -3,6 +3,7 @@ package com.bookmycourt.membership.controller;
 import com.bookmycourt.common.response.ApiResponse;
 import com.bookmycourt.membership.dto.ChangePlanRequest;
 import com.bookmycourt.membership.dto.CreateMembershipRequest;
+import com.bookmycourt.membership.dto.LoginRequest;
 import com.bookmycourt.membership.dto.MemberResponse;
 import com.bookmycourt.membership.dto.MemberScanResponse;
 import com.bookmycourt.membership.dto.MemberTimelineItem;
@@ -51,6 +52,11 @@ public class MembershipController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<MemberResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ApiResponse.success("Registered successfully", memberService.register(request));
+    }
+
+    @PostMapping("/auth/login")
+    public ApiResponse<MemberResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ApiResponse.success("Signed in successfully", memberService.login(request));
     }
 
     @GetMapping("/members")

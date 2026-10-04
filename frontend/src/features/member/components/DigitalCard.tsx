@@ -95,7 +95,7 @@ export function DigitalCard({ profile, className }: DigitalCardProps) {
               {profile.name}
             </h3>
             <p className="font-mono text-xs font-semibold text-volt-400 tracking-wider">
-              {profile.id}
+              {profile.memberId || profile.id}
             </p>
           </div>
 

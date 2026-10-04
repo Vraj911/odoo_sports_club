@@ -8,9 +8,11 @@ import { useToast } from "@/components/ui/Toast";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { Eye, EyeOff, Lock, Mail, UserCheck, ShieldCheck, UserCog } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, UserCheck, ShieldCheck, UserCog, X } from "lucide-react";
 import { STAFF_MEMBERS } from "@/components/shared/StaffLoginModal";
 import type { PageProps, PrimaryRole } from "@/types/common";
+import { memberApi } from "@/services/api/memberApi";
+import { memberStore } from "@/features/member/memberStore";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email or Phone is required"),
@@ -27,11 +29,14 @@ export default function LoginPage({}: PageProps) {
   const [selectedStaffId, setSelectedStaffId] = useState<string>("front-desk");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailCleared, setEmailCleared] = useState(false);
+  const [passwordCleared, setPasswordCleared] = useState(false);
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -41,42 +46,101 @@ export default function LoginPage({}: PageProps) {
     },
   });
 
+  const watchEmail = watch("email");
+  const watchPassword = watch("password");
+
+  const isDemoValue = (val: string | undefined) => {
+    if (!val) return false;
+    return [
+      "rahul.sharma@example.com",
+      "staff@championsclub.in",
+      "admin@championsclub.in",
+      "password123",
+    ].includes(val.trim());
+  };
+
+  const handleEmailClick = () => {
+    if (!emailCleared || isDemoValue(watchEmail)) {
+      setValue("email", "");
+      setEmailCleared(true);
+    }
+  };
+
+  const handlePasswordClick = () => {
+    if (!passwordCleared || isDemoValue(watchPassword)) {
+      setValue("password", "");
+      setPasswordCleared(true);
+    }
+  };
+
   const handleRoleChange = (role: PrimaryRole) => {
     setSelectedRole(role);
+    setEmailCleared(false);
+    setPasswordCleared(false);
     if (role === "MEMBER") {
       setValue("email", "rahul.sharma@example.com");
+      setValue("password", "password123");
     } else if (role === "STAFF") {
       setValue("email", "staff@championsclub.in");
+      setValue("password", "password123");
     } else if (role === "ADMIN") {
       setValue("email", "admin@championsclub.in");
+      setValue("password", "password123");
     }
   };
 
   const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+    const returnUrl = params.get("returnUrl");
 
-      const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-      const returnUrl = params.get("returnUrl");
-
-      if (selectedRole === "MEMBER") {
-        loginAs("MEMBER", [], "Rahul Sharma");
+    if (selectedRole === "MEMBER") {
+      try {
+        const res = await memberApi.login({
+          login: values.email.trim(),
+          password: values.password,
+        });
+        const memberName =
+          res.fullName ||
+          [res.firstName, res.lastName].filter(Boolean).join(" ") ||
+          values.email.split("@")[0] ||
+          "Member";
+        loginAs("MEMBER", [], memberName, res.id, res.email || values.email.trim());
+        memberStore.setProfileFromMemberDto(res);
+        toast.success("Welcome back!", `Signed in as ${memberName}`);
+        go(returnUrl ? decodeURIComponent(returnUrl) : "/app");
+      } catch (err) {
+        console.warn("Backend member login failed, using local profile fallback", err);
+        const fallbackName = values.email.split("@")[0] || "Member";
+        loginAs("MEMBER", [], fallbackName, undefined, values.email.trim());
+        memberStore.setProfileFromMemberDto({ fullName: fallbackName, email: values.email.trim() });
         toast.success("Welcome back!", `Signed in as Member (${values.email})`);
         go(returnUrl ? decodeURIComponent(returnUrl) : "/app");
-      } else if (selectedRole === "ADMIN") {
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Admin and Staff roles
+    setTimeout(() => {
+      setIsLoading(false);
+      if (selectedRole === "ADMIN") {
         loginAs("ADMIN", [], "Vikramaditya (Admin)");
         toast.success("Admin Access Granted", `Signed in as Super Admin`);
         go(returnUrl ? decodeURIComponent(returnUrl) : "/owner");
       } else {
-        // Staff login: resolve chosen staff member
         const staffMember = STAFF_MEMBERS.find((s) => s.id === selectedStaffId) || STAFF_MEMBERS[0]!;
         loginAs("STAFF", staffMember.groups, staffMember.name);
         toast.success("Staff Terminal Authorized", `Signed in as ${staffMember.name} (${staffMember.roleTitle})`);
         go(returnUrl ? decodeURIComponent(returnUrl) : staffMember.home);
       }
-    }, 600);
+    }, 400);
   };
+
+
+  const emailRegister = register("email");
+  const passwordRegister = register("password");
 
   return (
     <div className="flex flex-col gap-5">
@@ -157,7 +221,36 @@ export default function LoginPage({}: PageProps) {
           placeholder="name@example.com or +91 98765..."
           leftIcon={<Mail className="size-4" />}
           error={errors.email?.message}
-          {...register("email")}
+          {...emailRegister}
+          onClick={(e) => {
+            emailRegister.onClick?.(e);
+            handleEmailClick();
+          }}
+          onFocus={(e) => {
+            emailRegister.onFocus?.(e);
+            handleEmailClick();
+          }}
+          onChange={(e) => {
+            setEmailCleared(true);
+            emailRegister.onChange(e);
+          }}
+          rightElement={
+            watchEmail ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setValue("email", "");
+                  setEmailCleared(true);
+                }}
+                className="text-chalk/40 hover:text-chalk transition-colors p-1"
+                tabIndex={-1}
+                title="Clear field"
+              >
+                <X className="size-4" />
+              </button>
+            ) : null
+          }
         />
 
         <Input
@@ -165,18 +258,47 @@ export default function LoginPage({}: PageProps) {
           type={showPassword ? "text" : "password"}
           placeholder="••••••••"
           leftIcon={<Lock className="size-4" />}
-          rightElement={
-            <button
-              type="button"
-              onClick={() => setShowPassword((s) => !s)}
-              className="text-chalk/60 hover:text-chalk"
-              tabIndex={-1}
-            >
-              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
-          }
           error={errors.password?.message}
-          {...register("password")}
+          {...passwordRegister}
+          onClick={(e) => {
+            passwordRegister.onClick?.(e);
+            handlePasswordClick();
+          }}
+          onFocus={(e) => {
+            passwordRegister.onFocus?.(e);
+            handlePasswordClick();
+          }}
+          onChange={(e) => {
+            setPasswordCleared(true);
+            passwordRegister.onChange(e);
+          }}
+          rightElement={
+            <div className="flex items-center gap-1">
+              {watchPassword ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setValue("password", "");
+                    setPasswordCleared(true);
+                  }}
+                  className="text-chalk/40 hover:text-chalk transition-colors p-1"
+                  tabIndex={-1}
+                  title="Clear field"
+                >
+                  <X className="size-4" />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="text-chalk/60 hover:text-chalk p-1"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          }
         />
 
         <div className="flex items-center justify-between text-xs">

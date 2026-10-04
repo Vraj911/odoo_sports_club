@@ -27,7 +27,8 @@ public class BarLedgerAdapter {
 
     public UUID record(BarOrder order, String method, BigDecimal amount, String reference, CashShift shift) {
         Payment p = new Payment();
-        p.setSource("BAR");
+        p.setSourceType("BAR");
+        p.setSourceId(order.getId());
         p.setMethod(method);
         p.setAmount(amount);
         p.setStatus("PAID");
