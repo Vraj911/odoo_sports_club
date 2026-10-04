@@ -92,6 +92,40 @@ class BookingEngineTest {
         assertTrue(engine.startableSlots(courtA, day).stream().noneMatch(s -> s == slot || s == slot - 1));
     }
 
+    @Test
+    void doubleBookingPreventedAtLastSlotOfOperatingHours() {
+        // Club hours: 06:00 (slot 12) to 22:00 (slot 44). Last 60-min slot starts at 21:00 (slot 42).
+        OffsetDateTime lastSlot = futureSlot(21, 0);
+        UUID member2 = UUID.randomUUID();
+        UUID member3 = UUID.randomUUID();
+
+        // 1. First booking succeeds at the last slot
+        var result = engine.book(cmd(courtA, member, lastSlot), gold());
+        assertEquals("PENDING", result.status());
+
+        // 2. Second booking at the EXACT SAME last slot is rejected
+        assertThrows(SlotTakenException.class, () ->
+                engine.book(cmd(courtA, member2, lastSlot), gold()));
+
+        // 3. Overlapping booking on the preceding 30-min slot (20:30, slot 41) also conflicts with slot 42
+        OffsetDateTime overlapSlot = futureSlot(20, 30);
+        assertThrows(SlotTakenException.class, () ->
+                engine.book(cmd(courtA, member3, overlapSlot), gold()));
+    }
+
+    @Test
+    void bookingPastLastSlotThrowsInvalidSlotException() {
+        // 21:30 is slot 43 (closeSlot 44 - 1); a 60-min session extends past closing time
+        OffsetDateTime pastLastSlot = futureSlot(21, 30);
+        assertThrows(Model.InvalidSlotException.class, () ->
+                engine.book(cmd(courtA, member, pastLastSlot), gold()));
+
+        // 22:00 is slot 44 (closeSlot); outside club hours
+        OffsetDateTime atClosingSlot = futureSlot(22, 0);
+        assertThrows(Model.InvalidSlotException.class, () ->
+                engine.book(cmd(courtA, member, atClosingSlot), gold()));
+    }
+
     private static BookingCommand cmd(UUID court, UUID memberId, OffsetDateTime start) {
         return new BookingCommand(court, memberId, null, null, start, Channel.ONLINE);
     }

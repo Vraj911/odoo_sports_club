@@ -218,10 +218,11 @@ export function generateInitialGrid(
         return { courtId: court.id, time, status: "closed" };
       }
       if (booking) {
+        const isMine = booking.memberId === "SELF";
         const s: SlotCell = {
           courtId: court.id,
           time,
-          status: booking.status === "PENDING" ? "held" : "booked",
+          status: isMine ? "mine" : booking.status === "PENDING" ? "held" : "booked",
           bookingId: booking.id,
           memberName: booking.memberName,
           memberInitials: initials(booking.memberName),
@@ -229,19 +230,8 @@ export function generateInitialGrid(
         };
         return s;
       }
-
-      // Random pre-booked slots for realism
+      // Deterministic pseudo-random status for non-booked slots
       const hash = (court.id + time + date).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-      if (hash % 7 === 0) {
-        const rn = randomName();
-        return {
-          courtId: court.id,
-          time,
-          status: "booked",
-          memberName: rn,
-          memberInitials: initials(rn),
-        };
-      }
       if (hash % 11 === 0) {
         return {
           courtId: court.id,

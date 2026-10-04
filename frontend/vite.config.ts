@@ -12,9 +12,12 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  server: {
-    watch: {
-      usePolling: true,
+  vite: {
+    server: {
+      port: 8082,
+      watch: {
+        usePolling: true,
+      },
     },
   },
 });

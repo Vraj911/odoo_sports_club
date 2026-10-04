@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Bell, CalendarPlus, Home, ListChecks, ShoppingBag, User, LogOut, IdCard, Beer, Receipt, BadgeCheck, ChevronRight } from "lucide-react";
+import { useState, useEffect, type ReactNode } from "react";
+import { Bell, CalendarPlus, Home, ListChecks, ShoppingBag, User, LogOut, IdCard, Beer, Receipt, BadgeCheck, ChevronRight, CheckCheck } from "lucide-react";
 import { AppLink, useGo } from "@/app/router/links";
 import { Logo } from "@/components/brand/Logo";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -23,9 +23,23 @@ const NAV = [
 
 export function MemberLayout({ route, children }: { route: RouteMeta; children: ReactNode }) {
   const { user, logout } = useAuth();
-  const { profile, unreadCount } = useMember();
+  const { profile, unreadCount, notifications, markNotificationRead, markAllNotificationsRead, loadNotifications } = useMember();
   const go = useGo();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(() => {
+      loadNotifications();
+    }, 10000);
+    const onFocus = () => loadNotifications();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadNotifications]);
 
   return (
     <div className="flex min-h-screen bg-backdrop text-chalk pb-20 md:pb-0">
@@ -123,16 +137,92 @@ export function MemberLayout({ route, children }: { route: RouteMeta; children: 
               );
             })()}
 
-            <AppLink
-              to="/app/notifications"
-              className="relative p-2 text-chalk/80 hover:text-chalk"
-              aria-label="View notifications"
-            >
-              <Bell className="size-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-volt-400" />
+            {/* Notifications Menu */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotifOpen((n) => !n);
+                  setProfileOpen(false);
+                }}
+                className="relative p-2 text-chalk/80 hover:text-chalk transition-colors rounded-lg hover:bg-chalk/10"
+                aria-label="View notifications"
+              >
+                <Bell className="size-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 flex size-2 rounded-full bg-volt-400 shadow-volt" />
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-chalk/18 bg-court-600 shadow-2xl z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-chalk/14 bg-court-700/50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-chalk">Notifications</span>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-volt-400/20 px-2 py-0.5 text-[10px] font-bold text-volt-400">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={() => markAllNotificationsRead()}
+                        className="text-[11px] text-chalk/60 hover:text-volt-400 flex items-center gap-1 transition-colors"
+                      >
+                        <CheckCheck className="size-3.5" />
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-chalk/8">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-chalk/50">
+                        No notifications yet. Real club alerts will appear here.
+                      </div>
+                    ) : (
+                      notifications.slice(0, 5).map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            markNotificationRead(n.id);
+                            setNotifOpen(false);
+                            if (n.link) go(n.link);
+                          }}
+                          className={cn(
+                            "p-3.5 flex items-start gap-3 hover:bg-white/5 cursor-pointer transition-colors text-left",
+                            !n.read ? "bg-court-500/40" : ""
+                          )}
+                        >
+                          <div className="size-2 rounded-full bg-volt-400 mt-1.5 shrink-0 opacity-0 data-[unread=true]:opacity-100" data-unread={!n.read} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="text-xs font-semibold text-chalk truncate">{n.title}</p>
+                              <span className="text-[10px] text-chalk/40 shrink-0 font-mono">
+                                {new Date(n.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-chalk/70 mt-0.5 line-clamp-2 leading-relaxed">
+                              {n.message}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="p-2 border-t border-chalk/14 bg-court-700/30 text-center">
+                    <AppLink
+                      to="/app/notifications"
+                      onClick={() => setNotifOpen(false)}
+                      className="block py-1 text-xs font-medium text-volt-400 hover:text-volt-300 transition-colors"
+                    >
+                      View all notifications →
+                    </AppLink>
+                  </div>
+                </div>
               )}
-            </AppLink>
+            </div>
 
             {/* User Avatar Menu */}
             <div className="relative">

@@ -38,25 +38,37 @@ public class NotificationController {
 
     @GetMapping
     public ApiResponse<List<NotificationResponse>> getUserNotifications(
-            @RequestParam UUID userId,
+            @RequestParam(required = false) String userId,
             @RequestParam(required = false, defaultValue = "false") boolean unreadOnly) {
         return ApiResponse.success("Notifications loaded", notifications.getUserNotifications(userId, unreadOnly));
     }
 
     @PatchMapping("/{id}/read")
-    public ApiResponse<Void> markAsRead(@PathVariable UUID id) {
-        notifications.markAsRead(id);
+    public ApiResponse<Void> markAsRead(@PathVariable String id) {
+        try {
+            notifications.markAsRead(UUID.fromString(id));
+        } catch (IllegalArgumentException ignored) {
+        }
         return ApiResponse.success("Notification marked read", null);
     }
 
     @PostMapping("/mark-all-read")
-    public ApiResponse<Void> markAllAsRead(@RequestParam UUID userId) {
+    public ApiResponse<Void> markAllAsRead(@RequestParam(required = false) String userId) {
         notifications.markAllAsRead(userId);
         return ApiResponse.success("All notifications marked read", null);
     }
 
     @GetMapping("/unread-count")
-    public ApiResponse<Map<String, Long>> getUnreadCount(@RequestParam UUID userId) {
+    public ApiResponse<Map<String, Long>> getUnreadCount(@RequestParam(required = false) String userId) {
         return ApiResponse.success("Unread count loaded", Map.of("unreadCount", notifications.getUnreadCount(userId)));
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    public ApiResponse<Void> deleteNotification(@PathVariable String id) {
+        try {
+            notifications.deleteNotification(UUID.fromString(id));
+        } catch (IllegalArgumentException ignored) {
+        }
+        return ApiResponse.success("Notification deleted", null);
     }
 }

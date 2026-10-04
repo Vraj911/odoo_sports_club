@@ -11,12 +11,11 @@ import {
   addMinutes,
   SESSION_MINUTES,
   timeToMinutes,
-  randomName,
   initials,
-  TIME_SLOTS,
 } from "./sampleData";
 
 import { bookingApi } from "@/services/api/bookingApi";
+import { memberStore } from "@/features/member/memberStore";
 
 // ── Format date to YYYY-MM-DD ──
 export function toDateStr(d: Date): string {
@@ -27,56 +26,66 @@ export function toDateStr(d: Date): string {
 export function useBookings(currentTier: MemberTier = "Gold") {
   const [sport, setSport] = useState<Sport>("tennis");
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(new Date()));
-  const [grid, setGrid] = useState<SlotCell[][]>([]);
+  const [grid, setGrid] = useState<SlotCell[][]>(() => generateInitialGrid(toDateStr(new Date()), "tennis", []));
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load from backend or fallback to sample generator
-  const loadBookings = useCallback(async (date: string, curSport: Sport) => {
-    setLoading(true);
+  // Load real bookings from backend
+  const loadBookings = useCallback(async (date: string, curSport: Sport, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
+      const profile = memberStore.getState().profile;
       const backendBookings = await bookingApi.listBookings({ date });
-      const mapped = (backendBookings || []).map((b) => ({
-        id: b.id,
-        courtId: b.courtId,
-        courtName: b.courtName,
-        sport: (b.sport as Sport) || curSport,
-        date: b.date,
-        startTime: b.startTime,
-        endTime: b.endTime,
-        status: (b.status as Booking["status"]) || "CONFIRMED",
-        price: b.price || 0,
-        paymentStatus: b.paymentStatus || "PAID",
-        memberId: b.memberId || "SELF",
-        memberName: b.memberName || "Member",
-        memberTier: "Gold" as MemberTier,
-        guestCount: 0,
-        createdAt: Date.now(),
-      }));
-      const sampleBookings = generateSampleBookings(date);
-      const merged = [...sampleBookings, ...mapped];
-      setBookings(merged);
-      const newGrid = generateInitialGrid(date, curSport, merged);
+      const mapped: Booking[] = (backendBookings || []).map((b) => {
+        const isMine =
+          (profile.id && b.memberId && b.memberId.toLowerCase() === profile.id.toLowerCase()) ||
+          (profile.name && b.memberName && b.memberName.toLowerCase() === profile.name.toLowerCase());
+        return {
+          id: b.id,
+          courtId: b.courtId,
+          courtName: b.courtName,
+          sport: (b.sport as Sport) || curSport,
+          date: b.date,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          status: (b.status as Booking["status"]) || "CONFIRMED",
+          price: b.price || 0,
+          paymentStatus: b.paymentStatus || "PAID",
+          memberId: isMine ? "SELF" : b.memberId || "OTHER",
+          memberName: b.memberName || "Booked",
+          memberTier: "Gold" as MemberTier,
+          guestCount: 0,
+          createdAt: Date.now(),
+        };
+      });
+
+      setBookings(mapped);
+      const newGrid = generateInitialGrid(date, curSport, mapped);
       setGrid(newGrid);
-      setLoading(false);
-    } catch {
-      // Fallback to sample bookings
-      const sampleBookings = generateSampleBookings(date);
-      const merged = [...sampleBookings, ...bookings.filter((b) => b.date === date)];
-      const newGrid = generateInitialGrid(date, curSport, merged);
-      setGrid(newGrid);
-      setLoading(false);
+      if (!silent) setLoading(false);
+    } catch (e) {
+      console.warn("Could not fetch remote bookings, using local grid", e);
+      setGrid(generateInitialGrid(date, curSport, []));
+      if (!silent) setLoading(false);
     }
-  }, [bookings]);
+  }, []);
 
-  // Rebuild grid when sport or date changes
+  // Initial and reactive load on sport or date change
   useEffect(() => {
-    loadBookings(selectedDate, sport);
-  }, [sport, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadBookings(selectedDate, sport, false);
+  }, [sport, selectedDate, loadBookings]);
 
-  // Today's bookings count (confirmed + pending, not cancelled)
+  // Real-time polling every 2.5s for live multi-tab & multi-user synchronization
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadBookings(selectedDate, sport, true);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [selectedDate, sport, loadBookings]);
+
+  // Today's bookings count for current member
   const todayBookingCount = bookings.filter(
     (b) =>
       b.date === selectedDate &&
@@ -93,26 +102,13 @@ export function useBookings(currentTier: MemberTier = "Gold") {
     [currentTier]
   );
 
-  // Create booking
+  // Create booking with backend synchronization & concurrency prevention
   const createBooking = useCallback(
-    (
+    async (
       courtId: string,
       date: string,
-      startTime: string,
-    ): { success: boolean; booking?: Booking; error?: string } => {
-      // Check cap
-      const todayCount = bookings.filter(
-        (b) =>
-          b.date === date &&
-          b.memberId === "SELF" &&
-          b.status !== "CANCELLED" &&
-          b.status !== "EXPIRED"
-      ).length;
-      if (todayCount >= MAX_BOOKINGS_PER_DAY) {
-        return { success: false, error: "CAP_EXCEEDED" };
-      }
-
-      // Check overlap
+      startTime: string
+    ): Promise<{ success: boolean; booking?: Booking; error?: string; alternatives?: AlternativeSlot[] }> => {
       const court = COURTS.find((c) => c.id === courtId);
       if (!court) return { success: false, error: "INVALID_COURT" };
 
@@ -120,67 +116,12 @@ export function useBookings(currentTier: MemberTier = "Gold") {
       const startMin = timeToMinutes(startTime);
       const endMin = timeToMinutes(endTime);
 
-      const overlap = bookings.find(
-        (b) =>
-          b.courtId === courtId &&
-          b.date === date &&
-          b.status !== "CANCELLED" &&
-          b.status !== "EXPIRED" &&
-          timeToMinutes(b.startTime) < endMin &&
-          timeToMinutes(b.endTime) > startMin
-      );
-
-      if (overlap) {
-        return { success: false, error: "SLOT_TAKEN" };
-      }
-
       const priceQuote = getQuote(court.sport, currentTier);
       const isFree = priceQuote.youPay === 0;
+      const profile = memberStore.getState().profile;
 
-      const booking: Booking = {
-        id: `BK-${Date.now().toString(36).toUpperCase()}`,
-        courtId,
-        courtName: court.name,
-        sport: court.sport,
-        date,
-        startTime,
-        endTime,
-        status: isFree ? "CONFIRMED" : "PENDING",
-        price: priceQuote.youPay,
-        memberName: "Demo Member",
-        memberId: "SELF",
-        createdAt: Date.now(),
-        holdExpiry: isFree ? undefined : Date.now() + HOLD_SECONDS * 1000,
-      };
-
-      setBookings((prev) => [...prev, booking]);
-
-      // Update grid
-      setGrid((prev) =>
-        prev.map((row) =>
-          row.map((cell) => {
-            if (
-              cell.courtId === courtId &&
-              timeToMinutes(cell.time) >= startMin &&
-              timeToMinutes(cell.time) < endMin
-            ) {
-              return {
-                ...cell,
-                status: isFree ? "mine" : "held",
-                bookingId: booking.id,
-                holdExpiry: booking.holdExpiry,
-                memberName: "Demo Member",
-                memberInitials: "DM",
-              };
-            }
-            return cell;
-          })
-        )
-      );
-
-      // Persist to backend
-      bookingApi
-        .createBooking({
+      try {
+        const res = await bookingApi.createBooking({
           courtId,
           date,
           startTime,
@@ -188,17 +129,80 @@ export function useBookings(currentTier: MemberTier = "Gold") {
           sport: court.sport,
           memberTier: currentTier,
           price: priceQuote.youPay,
-        })
-        .catch(() => {});
+          memberId: profile.id,
+          guestName: profile.name,
+          guestPhone: profile.phone,
+        });
 
-      return { success: true, booking };
+        const newBooking: Booking = {
+          id: res.id || `BK-${Date.now().toString(36).toUpperCase()}`,
+          courtId,
+          courtName: res.courtName || court.name,
+          sport: court.sport,
+          date,
+          startTime,
+          endTime,
+          status: isFree ? "CONFIRMED" : "PENDING",
+          price: priceQuote.youPay,
+          memberName: profile.name || "Member",
+          memberId: "SELF",
+          createdAt: Date.now(),
+          holdExpiry: isFree ? undefined : Date.now() + HOLD_SECONDS * 1000,
+        };
+
+        setBookings((prev) => [...prev, newBooking]);
+
+        setGrid((prev) =>
+          prev.map((row) =>
+            row.map((cell) => {
+              if (
+                cell.courtId === courtId &&
+                timeToMinutes(cell.time) >= startMin &&
+                timeToMinutes(cell.time) < endMin
+              ) {
+                return {
+                  ...cell,
+                  status: isFree ? "mine" : "held",
+                  bookingId: newBooking.id,
+                  holdExpiry: newBooking.holdExpiry,
+                  memberName: profile.name,
+                  memberInitials: initials(profile.name || "ME"),
+                };
+              }
+              return cell;
+            })
+          )
+        );
+
+        // Notify memberStore to reload notifications immediately
+        memberStore.loadNotifications();
+
+        return { success: true, booking: newBooking };
+      } catch (err: any) {
+        // Immediately reload backend bookings to show real slot occupant
+        await loadBookings(date, sport, true);
+        const errDetails = err?.response?.data?.details;
+        const alts = errDetails?.alternatives || [];
+        return {
+          success: false,
+          error: "SLOT_TAKEN",
+          alternatives: Array.isArray(alts) && alts.length > 0
+            ? alts.map((a: any) => ({
+                courtId: a.courtId || courtId,
+                courtName: a.courtName || court.name,
+                time: a.time || startTime,
+                sport: court.sport,
+              }))
+            : findAlternativeSlots(grid, date, sport, courtId, startTime),
+        };
+      }
     },
-    [bookings, currentTier]
+    [grid, sport, currentTier, loadBookings]
   );
 
   // Confirm booking (after payment)
   const confirmBooking = useCallback(
-    (bookingId: string) => {
+    async (bookingId: string) => {
       setBookings((prev) =>
         prev.map((b) =>
           b.id === bookingId ? { ...b, status: "CONFIRMED" as const, holdExpiry: undefined } : b
@@ -214,12 +218,15 @@ export function useBookings(currentTier: MemberTier = "Gold") {
         )
       );
 
-      bookingApi
-        .confirmBooking({
+      try {
+        await bookingApi.confirmBooking({
           holdToken: bookingId,
           memberTier: currentTier,
-        })
-        .catch(() => {});
+        });
+        memberStore.loadNotifications();
+      } catch {
+        // ignored
+      }
     },
     [currentTier]
   );
@@ -236,7 +243,14 @@ export function useBookings(currentTier: MemberTier = "Gold") {
         prev.map((row) =>
           row.map((cell) =>
             cell.bookingId === bookingId
-              ? { ...cell, status: "free" as const, bookingId: undefined, holdExpiry: undefined, memberName: undefined, memberInitials: undefined }
+              ? {
+                  ...cell,
+                  status: "free" as const,
+                  bookingId: undefined,
+                  holdExpiry: undefined,
+                  memberName: undefined,
+                  memberInitials: undefined,
+                }
               : cell
           )
         )
@@ -247,7 +261,7 @@ export function useBookings(currentTier: MemberTier = "Gold") {
 
   // Cancel booking
   const cancelBooking = useCallback(
-    (bookingId: string) => {
+    async (bookingId: string) => {
       setBookings((prev) =>
         prev.map((b) =>
           b.id === bookingId ? { ...b, status: "CANCELLED" as const } : b
@@ -257,13 +271,25 @@ export function useBookings(currentTier: MemberTier = "Gold") {
         prev.map((row) =>
           row.map((cell) =>
             cell.bookingId === bookingId
-              ? { ...cell, status: "free" as const, bookingId: undefined, holdExpiry: undefined, memberName: undefined, memberInitials: undefined }
+              ? {
+                  ...cell,
+                  status: "free" as const,
+                  bookingId: undefined,
+                  holdExpiry: undefined,
+                  memberName: undefined,
+                  memberInitials: undefined,
+                }
               : cell
           )
         )
       );
 
-      bookingApi.cancelBooking(bookingId, "Cancelled from web").catch(() => {});
+      try {
+        await bookingApi.cancelBooking(bookingId, "Cancelled from web");
+        memberStore.loadNotifications();
+      } catch {
+        // ignored
+      }
     },
     []
   );
@@ -275,47 +301,10 @@ export function useBookings(currentTier: MemberTier = "Gold") {
     [grid, selectedDate, sport]
   );
 
-  // Retry / reload bookings
+  // Manual retry / reload bookings
   const simulateLoad = useCallback(() => {
-    loadBookings(selectedDate, sport);
+    loadBookings(selectedDate, sport, false);
   }, [loadBookings, selectedDate, sport]);
-
-  // Simulated live update: randomly book a free slot every ~8s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGrid((prev) => {
-        const flatFree: { ri: number; ci: number }[] = [];
-        prev.forEach((row, ri) => {
-          row.forEach((cell, ci) => {
-            if (cell.status === "free") flatFree.push({ ri, ci });
-          });
-        });
-        if (flatFree.length === 0) return prev;
-
-        const pick = flatFree[Math.floor(Math.random() * flatFree.length)];
-        if (!pick) return prev;
-        const rn = randomName();
-        const next = prev.map((row, ri) =>
-          ri === pick.ri
-            ? row.map((cell, ci) =>
-                ci === pick.ci
-                  ? {
-                      ...cell,
-                      status: "booked" as const,
-                      memberName: rn,
-                      memberInitials: initials(rn),
-                      _flash: true,
-                    }
-                  : cell
-              )
-            : row
-        );
-        return next;
-      });
-    }, 8000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   return {
     sport,
