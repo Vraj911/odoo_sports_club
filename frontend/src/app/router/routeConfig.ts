@@ -67,6 +67,7 @@ export const routeConfig: RouteMeta[] = [
   { ...r("/app/bookings", "My Bookings", "member", MEMBER, 3, [], ListChecks), load: () => import("@/features/member/pages/MyBookings") },
   { ...r("/app/bookings/:id", "Booking Detail", "member", MEMBER, 3, [], ListChecks), load: () => import("@/features/member/pages/BookingDetail") },
   { ...r("/app/shop", "Shop", "member", MEMBER, 6, [], ShoppingBag), load: () => import("@/features/shop/pages/ShopCatalogPage") },
+  { ...r("/app/shop/:slug", "Product Detail", "member", MEMBER, 6, [], Package), load: () => import("@/features/shop/pages/ProductDetailPage") },
   { ...r("/app/cart", "Cart", "member", MEMBER, 6, [], ShoppingCart), load: () => import("@/features/shop/pages/CartPage") },
   { ...r("/app/checkout", "Checkout", "member", MEMBER, 6, [], CreditCard), load: () => import("@/features/shop/pages/CheckoutPage") },
   { ...r("/app/orders", "Orders", "member", MEMBER, 4, [], Package), load: () => import("@/features/member/pages/OrdersPage") },
