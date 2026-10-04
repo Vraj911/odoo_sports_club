@@ -34,15 +34,12 @@ import { cn } from "@/lib/cn";
 
 export default function FinanceReconciliationPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
 
   const { cashReconciliations, gatewaySettlements } = useFinanceStore();
 
   const [activeTab, setActiveTab] = useState<string>("CASH");
-  const [selectedCashRecord, setSelectedCashRecord] = useState<CashReconciliationRecord | null>(null);
   const [matchingGatewayRecord, setMatchingGatewayRecord] = useState<GatewaySettlementRecord | null>(null);
   const [bankRefInput, setBankRefInput] = useState("");
-  const [adminPinModalOpen, setAdminPinModalOpen] = useState(false);
 
   const tabs: TabItem[] = [
     { id: "CASH", label: "Daily Cash Drawer Reconciliation" },
@@ -51,24 +48,7 @@ export default function FinanceReconciliationPage() {
 
   // Cash Sign-off workflow
   const handleStartSignoff = (cr: CashReconciliationRecord) => {
-    setSelectedCashRecord(cr);
-    if (isAdmin) {
-      signOffCashReconciliation(cr.id, user?.name || "Administrator");
-    } else {
-      setAdminPinModalOpen(true);
-    }
-  };
-
-  const handleAdminPinConfirm = (reason: string, pin?: string) => {
-    if (selectedCashRecord) {
-      signOffCashReconciliation(
-        selectedCashRecord.id,
-        user?.name || "Staff Authorised by Admin",
-        pin
-      );
-    }
-    setAdminPinModalOpen(false);
-    setSelectedCashRecord(null);
+    signOffCashReconciliation(cr.id, user?.name || "Staff");
   };
 
   // Gateway Matching workflow
@@ -391,14 +371,6 @@ export default function FinanceReconciliationPage() {
         </Modal>
       )}
 
-      {/* Admin PIN Dialog for Cash Drawer Sign-off */}
-      <AdminPinDialog
-        isOpen={adminPinModalOpen}
-        onClose={() => setAdminPinModalOpen(false)}
-        onConfirm={handleAdminPinConfirm}
-        title="Admin Sign-off Required"
-        description="Daily cash reconciliation sign-off certifies physical vault counts. An administrator PIN (1234 or 9999) is required."
-      />
     </div>
   );
 }

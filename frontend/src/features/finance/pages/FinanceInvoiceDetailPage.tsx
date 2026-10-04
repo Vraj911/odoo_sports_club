@@ -39,7 +39,6 @@ import type { PageProps } from "@/types/common";
 export default function FinanceInvoiceDetailPage({ params }: PageProps) {
   const go = useGo();
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
 
   const { invoices } = useFinanceStore();
   const invoiceId = params?.["id"];
@@ -76,28 +75,18 @@ export default function FinanceInvoiceDetailPage({ params }: PageProps) {
 
   // Handle Void
   const handleStartVoid = () => {
-    if (isAdmin) {
-      setIsVoidDialogOpen(true);
-    } else {
-      setPendingAction("VOID");
-      setAdminPinModalOpen(true);
-    }
+    setIsVoidDialogOpen(true);
   };
 
   const handleConfirmVoid = (reason: string, pin?: string) => {
-    voidInvoice(invoice.id, reason, user?.name || "Administrator", pin);
+    voidInvoice(invoice.id, reason, user?.name || "Staff", pin);
   };
 
   // Handle Credit Note
   const handleStartCreditNote = () => {
     setCreditNoteAmount(String(invoice.balanceDue || invoice.totalAmount));
     setCreditNoteReason("");
-    if (isAdmin) {
-      setIsCreditNoteModalOpen(true);
-    } else {
-      setPendingAction("CREDIT_NOTE");
-      setAdminPinModalOpen(true);
-    }
+    setIsCreditNoteModalOpen(true);
   };
 
   const handleConfirmCreditNote = (e: React.FormEvent) => {

@@ -18,12 +18,11 @@ export function AdminPinDialog({
   isOpen,
   onClose,
   onConfirm,
-  title = "Admin Override Required",
-  description = "This action exceeds standard desk limits. An administrator PIN and audit justification are required to proceed.",
+  title = "Supervisor Override Required",
+  description = "This action exceeds standard desk limits. A supervisor PIN and audit justification are required to proceed.",
   overrideType = "cap",
 }: AdminPinDialogProps) {
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
 
   const [pin, setPin] = useState("");
   const [reason, setReason] = useState("");
@@ -37,15 +36,13 @@ export function AdminPinDialog({
       return;
     }
 
-    if (!isAdmin) {
-      if (!pin.trim()) {
-        setError("Admin PIN is required. Ask an admin to override.");
-        return;
-      }
-      if (pin !== "9999" && pin !== "1234") {
-        setError("Invalid Admin PIN. Please ask an administrator to authorize.");
-        return;
-      }
+    if (!pin.trim()) {
+      setError("Supervisor PIN is required to override.");
+      return;
+    }
+    if (pin !== "9999" && pin !== "1234") {
+      setError("Invalid PIN. Please ask a supervisor to authorize.");
+      return;
     }
 
     setError(null);
@@ -69,25 +66,24 @@ export function AdminPinDialog({
         <div className="flex items-start gap-3 rounded-[16px] border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200">
           <AlertTriangle className="size-5 shrink-0 text-amber-400 mt-0.5" />
           <div className="space-y-1">
-            <p className="font-semibold text-amber-300">Admin Privileges Required</p>
+            <p className="font-semibold text-amber-300">Supervisor Authorization Required</p>
             <p className="leading-relaxed">{description}</p>
           </div>
         </div>
 
-        {!isAdmin ? (
-          <div className="rounded-[14px] border border-chalk/12 bg-court-700/60 p-3 space-y-2 text-xs">
-            <div className="flex items-center gap-2 text-chalk/80 font-medium">
-              <Lock className="size-3.5 text-volt-400" />
-              <span>Ask an admin to override</span>
-            </div>
-            <p className="text-chalk/60 text-[11px] leading-relaxed">
-              Standard staff accounts cannot self-authorize daily cap or pricing waivers. An in-person Administrator must enter their 4-digit security PIN.
-            </p>
-            <Input
-              label="Admin Security PIN"
-              type="password"
-              placeholder="Enter 4-digit PIN (Demo: 9999)"
-              maxLength={6}
+        <div className="rounded-[14px] border border-chalk/12 bg-court-700/60 p-3 space-y-2 text-xs">
+          <div className="flex items-center gap-2 text-chalk/80 font-medium">
+            <Lock className="size-3.5 text-volt-400" />
+            <span>Supervisor PIN Override</span>
+          </div>
+          <p className="text-chalk/60 text-[11px] leading-relaxed">
+            Please enter the 4-digit security PIN to authorize this override.
+          </p>
+          <Input
+            label="Security PIN"
+            type="password"
+            placeholder="Enter 4-digit PIN (Demo: 9999 or 1234)"
+            maxLength={6}
               value={pin}
               onChange={(e) => {
                 setPin(e.target.value);
@@ -96,12 +92,6 @@ export function AdminPinDialog({
               autoFocus
             />
           </div>
-        ) : (
-          <div className="flex items-center gap-2 text-xs text-volt-400 bg-volt-400/10 border border-volt-400/30 rounded-pill px-3 py-1.5 font-medium">
-            <ShieldCheck className="size-4 shrink-0" />
-            <span>Authenticated as Super Admin — PIN waived</span>
-          </div>
-        )}
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-chalk/80">

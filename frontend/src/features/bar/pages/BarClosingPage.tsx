@@ -118,7 +118,7 @@ export function BarClosingPage() {
               <Calendar className="w-3.5 h-3.5" />
               <span>Z-Report Date: {new Date(dailyClosing.date).toLocaleDateString("en-IN", { dateStyle: "full" })}</span>
               <span className="px-2 py-0.2 rounded bg-volt-400/20 text-volt-300 font-semibold text-[10px]">
-                ADMIN AUTHORIZED
+                AUTHORIZED
               </span>
             </div>
             <h1 className="text-2xl font-heading font-black text-white">Daily Financial Closing</h1>

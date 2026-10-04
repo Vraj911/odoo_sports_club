@@ -29,9 +29,6 @@ export function DevRoleSwitcher() {
     if (role === "MEMBER") {
       loginAs("MEMBER", []);
       go("/app");
-    } else if (role === "ADMIN") {
-      loginAs("ADMIN", []);
-      go("/owner");
     } else {
       // Keep existing groups if switching to staff, or default to FRONT_DESK
       const groups: PermissionGroup[] = activeGroups.length > 0 ? activeGroups : ["FRONT_DESK"];
@@ -50,9 +47,7 @@ export function DevRoleSwitcher() {
 
   // Build display label for the floating toggle pill
   const currentLabel = user
-    ? user.role === "ADMIN"
-      ? "Admin"
-      : user.role === "STAFF"
+    ? user.role === "STAFF"
       ? user.groups.length > 0
         ? `Staff (${user.groups.join(", ")})`
         : "Staff (No Group)"

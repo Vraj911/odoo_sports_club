@@ -65,13 +65,4 @@ describe("App routing", () => {
     const { container } = await renderAt("/crm/leads");
     await waitFor(() => expect(container.firstChild).not.toBeNull());
   });
-
-  it("renders /admin/audit-log when logged in as ADMIN", async () => {
-    sessionStorage.setItem(
-      "ccms_auth_user",
-      JSON.stringify({ id: "a-1", name: "Admin User", role: "ADMIN", groups: [] })
-    );
-    const { container } = await renderAt("/admin/audit-log");
-    await waitFor(() => expect(container.firstChild).not.toBeNull());
-  });
 });

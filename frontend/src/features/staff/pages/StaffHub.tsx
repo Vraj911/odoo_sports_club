@@ -119,15 +119,9 @@ export default function StaffHub({}: PageProps) {
             <h1 className="text-3xl font-bold tracking-tight text-chalk">
               Welcome back, {user.name}
             </h1>
-            {isAdmin ? (
-              <span className="rounded-pill bg-volt-400 px-2.5 py-0.5 text-xs font-bold text-ink-900 uppercase tracking-wider">
-                Admin
-              </span>
-            ) : (
-              <span className="rounded-pill border border-chalk/20 bg-chalk/8 px-2.5 py-0.5 text-xs font-medium text-chalk/80">
-                Staff Member
-              </span>
-            )}
+            <span className="rounded-pill border border-chalk/20 bg-chalk/8 px-2.5 py-0.5 text-xs font-medium text-chalk/80">
+              Staff Member
+            </span>
           </div>
           <p className="text-xs sm:text-sm text-chalk/70 mt-1">
             Champions Club Operations Portal · Select your assigned terminal or manage your staff shift.

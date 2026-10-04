@@ -33,14 +33,11 @@ import { cn } from "@/lib/cn";
 
 export default function FinancePeriodsPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
 
   const { periods } = useFinanceStore();
 
   const [closingPeriod, setClosingPeriod] = useState<FinancialPeriod | null>(null);
   const [reopeningPeriod, setReopeningPeriod] = useState<FinancialPeriod | null>(null);
-  const [adminPinModalOpen, setAdminPinModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"CLOSE" | "REOPEN" | null>(null);
 
   // Close workflow
   const handleStartClose = (p: FinancialPeriod) => {
@@ -53,13 +50,9 @@ export default function FinancePeriodsPage() {
     setClosingPeriod(null);
   };
 
-  // Reopen workflow (Admin only)
+  // Reopen workflow
   const handleStartReopen = (p: FinancialPeriod) => {
     setReopeningPeriod(p);
-    if (!isAdmin) {
-      setPendingAction("REOPEN");
-      setAdminPinModalOpen(true);
-    }
   };
 
   const handleAdminPinConfirm = (reason: string, pin?: string) => {
@@ -184,7 +177,6 @@ export default function FinancePeriodsPage() {
             </Button>
           );
         } else {
-          return (
             <Button
               variant="secondary"
               size="sm"
@@ -192,10 +184,8 @@ export default function FinancePeriodsPage() {
               className="h-7 px-2.5 text-xs gap-1"
             >
               <Unlock className="size-3 text-volt-400" />
-              {!isAdmin && <ShieldAlert className="size-3 text-warning" />}
               Reopen
             </Button>
-          );
         }
       },
     },
@@ -273,8 +263,8 @@ export default function FinancePeriodsPage() {
         </Modal>
       )}
 
-      {/* Admin Direct Reopen Reason Dialog */}
-      {reopeningPeriod && isAdmin && (
+      {/* Reopen Reason Dialog */}
+      {reopeningPeriod && (
         <ReasonDialog
           isOpen={Boolean(reopeningPeriod)}
           onClose={() => setReopeningPeriod(null)}
@@ -285,19 +275,6 @@ export default function FinancePeriodsPage() {
           variant="primary"
         />
       )}
-
-      {/* Staff Admin PIN Dialog for Reopen */}
-      <AdminPinDialog
-        isOpen={adminPinModalOpen}
-        onClose={() => {
-          setAdminPinModalOpen(false);
-          setReopeningPeriod(null);
-          setPendingAction(null);
-        }}
-        onConfirm={handleAdminPinConfirm}
-        title="Admin Authorization Required to Reopen Period"
-        description="Reopening a closed period requires an Administrator PIN (1234 or 9999) and an explicit audit justification."
-      />
     </div>
   );
 }

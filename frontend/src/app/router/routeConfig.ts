@@ -1,5 +1,5 @@
 import {
-  Home, Building2, BadgeCheck, CalendarDays, ShoppingBag, Package, ShoppingCart, CreditCard, Sparkles, Mail, Share2,
+  Home, Building2, BadgeCheck, CalendarDays, ShoppingBag, Package, ShoppingCart, CreditCard, Sparkles, Mail,
   LogIn, UserPlus, KeyRound, LayoutDashboard, CalendarPlus, Users, ListChecks, FileText, Beer, Receipt, IdCard, User,
   Bell, ClipboardList, UserRoundPlus, Footprints, ScanLine, Wallet, Store, Zap, Boxes, PackagePlus, Tags, Truck,
   Undo2, Wrench, BarChart3, Wine, Table2, Clock, Lock, ChefHat, Contact, Target, FileSignature, Megaphone, Landmark,
@@ -53,7 +53,6 @@ export const routeConfig: RouteMeta[] = [
   { ...r("/checkout", "Checkout", "public", PUBLIC, 6, [], CreditCard), load: () => import("@/features/shop/pages/CheckoutPage") },
   { ...r("/trial", "Book a Trial", "public", PUBLIC, 8, ["WEB-05"], Sparkles), load: () => import("@/features/website/pages/TrialBookingPage") },
   { ...r("/contact", "Contact", "public", PUBLIC, 8, ["WEB-07"], Mail), load: () => import("@/features/website/pages/ContactPage") },
-  { ...r("/share/:token", "Shared Report", "public", PUBLIC, 11, ["RPT-10"], Share2), load: () => import("@/features/owner/pages/PublicShareReportPage") },
 
   // ─── AUTH ───────────────────────────────────────────────────────────
   { ...r("/login", "Sign in", "auth", PUBLIC, 2, ["AUTH-01"], LogIn), load: () => import("@/features/auth/pages/LoginPage") },

@@ -30,10 +30,8 @@ export interface PaymentDrawerProps {
 
 export function PaymentDrawer({ payment, isOpen, onClose }: PaymentDrawerProps) {
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
 
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
-  const [adminPinModalOpen, setAdminPinModalOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState<number>(0);
   const [refundMode, setRefundMode] = useState<"GATEWAY" | "CASH_CREDIT_MEMO">("GATEWAY");
   const [refundReason, setRefundReason] = useState("");
@@ -46,13 +44,7 @@ export function PaymentDrawer({ payment, isOpen, onClose }: PaymentDrawerProps) 
     setRefundAmount(maxRefundable);
     setRefundReason("");
     setRefundMode(payment.method === "ONLINE" || payment.method === "CARD" ? "GATEWAY" : "CASH_CREDIT_MEMO");
-
-    if (isAdmin) {
-      setRefundDialogOpen(true);
-    } else {
-      // Staff requires admin pin override
-      setAdminPinModalOpen(true);
-    }
+    setRefundDialogOpen(true);
   };
 
   const handleAdminPinConfirm = (reason: string, pin?: string) => {
@@ -307,18 +299,7 @@ export function PaymentDrawer({ payment, isOpen, onClose }: PaymentDrawerProps) 
         </div>
       </Drawer>
 
-      {/* Staff Admin PIN Override Dialog */}
-      <AdminPinDialog
-        isOpen={adminPinModalOpen}
-        onClose={() => setAdminPinModalOpen(false)}
-        onConfirm={handleAdminPinConfirm}
-        title="Admin Authorization Required for Refund"
-        description={`Refund of ${formatINR(
-          refundAmount
-        )} requires Manager / Admin PIN (1234 or 9999) and an explicit audit justification.`}
-      />
-
-      {/* Admin Direct Reason Dialog */}
+      {/* Direct Reason Dialog */}
       <ReasonDialog
         isOpen={refundDialogOpen}
         onClose={() => setRefundDialogOpen(false)}

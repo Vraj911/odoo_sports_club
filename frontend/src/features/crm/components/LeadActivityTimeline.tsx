@@ -47,7 +47,7 @@ export function LeadActivityTimeline({ leadId, activities }: LeadActivityTimelin
             : subject.trim() || "Email Communication",
         content: content.trim(),
         author: authorName,
-        authorRole: user?.role === "ADMIN" ? "Admin" : "Staff",
+        authorRole: "Staff",
       });
 
       setContent("");
